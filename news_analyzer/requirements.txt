@@ -1,0 +1,14 @@
+# === Web ===
+django
+requests
+
+# === Data ===
+pandas
+numpy
+openpyxl
+
+# === Utils ===
+python-dotenv
+selenium
+webdriver-manager
+playwright
