@@ -1215,15 +1215,33 @@
             <div class="control-card">
               <h2 class="section-title">Поиск аудиторских гипотез</h2>
               <p style="font-size:0.85rem;color:var(--tg-muted);margin-bottom:14px;">
-                Использует файл из вкладки «Анализ». Инструмент сам разбирает каждый документ,
-                находит совпадения между ними (контрагент, схема, ссылки, риск-теги),
-                группирует и формулирует проверяемые гипотезы. Тема не нужна — находит всё сам.
+                Инструмент сам разбирает каждый документ, находит совпадения между ними
+                (контрагент, схема, ссылки, риск-теги), группирует и формулирует проверяемые
+                гипотезы. Тема не нужна — находит всё сам.
               </p>
 
-              <div class="meta-box" id="hypoFileInfo">Файл не загружен — откройте вкладку «Анализ» и загрузите Excel.</div>
+              <div id="hypoDropZone" class="drop-zone" onclick="document.getElementById('hypoExcelInput').click()">
+                <input id="hypoExcelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="hypoHandleUpload(this.files)">
+                <i data-lucide="file-spreadsheet" style="width:30px;height:30px;color:#2aabee;"></i>
+                <p>Загрузите Excel для поиска гипотез</p>
+              </div>
+
+              <div class="field" style="margin-top:14px;">
+                <label for="hypoSheetSelect">Лист</label>
+                <select id="hypoSheetSelect" class="input-style" disabled onchange="hypoOnSheetChange()">
+                  <option>Загрузите файл</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="hypoColumnSelect">Столбец с текстом документа</label>
+                <select id="hypoColumnSelect" class="input-style" disabled>
+                  <option>Сначала выберите лист</option>
+                </select>
+              </div>
 
               <div class="button-stack" style="margin-top:14px;">
-                <button id="hypoRunBtn" class="btn-primary" onclick="hypoStart()">
+                <button id="hypoRunBtn" class="btn-primary" disabled onclick="hypoStart()">
                   <i data-lucide="search" style="width:18px;height:18px;"></i>
                   <span>Найти гипотезы</span>
                 </button>
@@ -2661,9 +2679,60 @@
     }
 
     // ── Гипотезы ──────────────────────────────────────────────
+    let hypoFilePath = '', hypoSheet = '', hypoColumnsBySheet = {};
+
+    function hypoUpdateRunState() {
+      const btn = document.getElementById('hypoRunBtn');
+      const col = document.getElementById('hypoColumnSelect');
+      if (btn) btn.disabled = !(hypoFilePath && hypoSheet && col && col.value);
+    }
+
+    async function hypoHandleUpload(files) {
+      if (!files || !files.length) return;
+      hideNotice('hypoNotice');
+      const formData = new FormData();
+      formData.append('file', files[0]);
+      try {
+        const resp = await fetch('hypo/upload/', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (!resp.ok || data.status !== 'ok') throw new Error(data.error || 'Ошибка загрузки');
+        hypoFilePath = data.file_path;
+        hypoColumnsBySheet = data.columns || {};
+        const sheetSel = document.getElementById('hypoSheetSelect');
+        sheetSel.disabled = false;
+        sheetSel.innerHTML = '';
+        (data.sheets || []).forEach((s) => {
+          const o = document.createElement('option'); o.value = s; o.textContent = s; sheetSel.appendChild(o);
+        });
+        hypoSheet = sheetSel.value;
+        hypoOnSheetChange();
+        showNotice('hypoNotice', 'Файл загружен. Выберите столбец с текстом документа.', 'success');
+      } catch (e) {
+        showNotice('hypoNotice', e.message, 'error');
+      }
+    }
+
+    function hypoOnSheetChange() {
+      const sheetSel = document.getElementById('hypoSheetSelect');
+      const colSel = document.getElementById('hypoColumnSelect');
+      hypoSheet = sheetSel ? sheetSel.value : '';
+      const cols = hypoColumnsBySheet[hypoSheet] || [];
+      colSel.disabled = false;
+      colSel.innerHTML = '<option value="">Выберите столбец</option>';
+      cols.forEach((c) => {
+        const o = document.createElement('option'); o.value = c; o.textContent = c; colSel.appendChild(o);
+      });
+      // авто-выбор подходящего столбца, если есть
+      const guess = cols.find((c) => /текст|содержан|пересказ/i.test(c));
+      if (guess) colSel.value = guess;
+      colSel.onchange = hypoUpdateRunState;
+      hypoUpdateRunState();
+    }
+
     async function hypoStart() {
-      if (!(currentFilePath && currentSheet)) {
-        showNotice('hypoNotice', 'Сначала загрузите файл во вкладке «Анализ».', 'error');
+      const column = document.getElementById('hypoColumnSelect').value;
+      if (!(hypoFilePath && hypoSheet && column)) {
+        showNotice('hypoNotice', 'Загрузите файл и выберите лист и столбец.', 'error');
         return;
       }
       hideNotice('hypoNotice');
@@ -2672,7 +2741,7 @@
       try {
         const resp = await fetch('hypo/start/', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_path: currentFilePath, sheet: currentSheet })
+          body: JSON.stringify({ file_path: hypoFilePath, sheet: hypoSheet, column })
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Ошибка запуска');

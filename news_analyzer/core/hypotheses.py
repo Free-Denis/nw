@@ -235,7 +235,17 @@ def _cancelled(job_id):
         return HYPO_JOBS.get(job_id, {}).get("cancelled", False)
 
 
-def run_hypothesis_job(job_id, rows, colmap=None, model=None):
+def _row_content(row, colmap, content_column):
+    """Текст документа: из выбранного пользователем столбца либо авто (Содержание+Текст)."""
+    if content_column and content_column in row:
+        val = row.get(content_column)
+        text = "" if val is None else str(val).strip()
+        if text and text.lower() != "nan":
+            return text
+    return get_content(row, colmap)
+
+
+def run_hypothesis_job(job_id, rows, colmap=None, model=None, content_column=None):
     """Разобрать все документы, найти совпадения, сгенерировать гипотезы из групп."""
     try:
         from .gigachat import GigaChatClient
@@ -247,7 +257,7 @@ def run_hypothesis_job(job_id, rows, colmap=None, model=None):
         doc_meta = [
             {
                 "row": idx + 1,
-                "subject": str(get(row, colmap, "subject", "")) or get_content(row, colmap)[:120],
+                "subject": str(get(row, colmap, "subject", "")) or _row_content(row, colmap, content_column)[:120],
                 "link": str(get(row, colmap, "link", "")),
             }
             for idx, row in enumerate(rows)
@@ -260,7 +270,7 @@ def run_hypothesis_job(job_id, rows, colmap=None, model=None):
             if _cancelled(job_id):
                 return
             _update_progress(job_id, idx + 1, total, f"Разбор документа {idx + 1} из {total}")
-            content = get_content(row, colmap)
+            content = _row_content(row, colmap, content_column)
             if not content.strip():
                 continue
             card = _gc_json(gc, CARD_SYSTEM, build_card_user(content), model=model)

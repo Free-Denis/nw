@@ -564,29 +564,29 @@ def _run_analysis_worker(job_id):
                     summary = summary_result
                     
                     try:
-                        type_col = next((c for c in source_df.columns if str(c).lower() == "вид документа"), None)
-                        num_col = next((c for c in source_df.columns if str(c).lower() == "номер документа"), None)
+                        # ищем колонки по подстроке (имена в выгрузках различаются)
+                        type_col = next((c for c in source_df.columns if "вид документа" in str(c).lower()), None)
+                        num_col = next((c for c in source_df.columns if "номер" in str(c).lower()), None)
+                        subj_col = next((c for c in source_df.columns if "содержание" in str(c).lower()), None)
                         link_col = next((c for c in source_df.columns if "ссылка" in str(c).lower()), None)
-                        
+
                         def _get_val(c):
                             if not c: return ""
                             v = row.get(c)
                             if pd.isna(v): return ""
                             v = str(v).strip()
                             return "" if v.lower() == "nan" else v
-                        
-                        doc_type_val = _get_val(type_col)
-                        doc_num_val = _get_val(num_col)
-                        
-                        if doc_type_val or doc_num_val:
-                            assembled_text = f"{doc_type_val} {doc_num_val}".strip()
-                            link_val = _get_val(link_col)
-                            is_valid_link = link_val.startswith("http://") or link_val.startswith("https://")
-                            
-                            if is_valid_link and add_link_flag:
-                                summary += f'\n\n<a href="{link_val}" target="_blank" style="color:var(--tg-primary);text-decoration:none;">{assembled_text}</a>'
-                            else:
-                                summary += f'\n\n{assembled_text}'
+
+                        assembled_text = f"{_get_val(type_col)} {_get_val(num_col)}".strip()
+                        link_val = _get_val(link_col)
+                        is_valid_link = link_val.startswith("http://") or link_val.startswith("https://")
+                        # подпись ссылки: вид+номер → содержание → запасной текст
+                        label = assembled_text or _get_val(subj_col)[:80] or "Открыть документ"
+
+                        if is_valid_link and add_link_flag:
+                            summary += f'\n\n<a href="{link_val}" target="_blank" style="color:var(--tg-primary);text-decoration:none;">{label}</a>'
+                        elif assembled_text:
+                            summary += f'\n\n{assembled_text}'
                     except Exception as e:
                         traceback.print_exc()
 

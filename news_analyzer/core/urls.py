@@ -24,6 +24,7 @@ urlpatterns = [
     path('lab/save_profile/', views.lab_save_profile, name='lab_save_profile'),
     path('lab/cancel/', views.lab_cancel, name='lab_cancel'),
     # Audit hypotheses
+    path('hypo/upload/', views_ai.hypo_upload, name='hypo_upload'),
     path('hypo/start/', views_ai.hypo_start, name='hypo_start'),
     path('hypo/progress/', views_ai.hypo_progress, name='hypo_progress'),
     path('hypo/cancel/', views_ai.hypo_cancel, name='hypo_cancel'),

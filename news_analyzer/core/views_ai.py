@@ -36,6 +36,37 @@ def _active_text_model():
 # ══════════════════════════════════════════════════════════════════
 # Гипотезы
 # ══════════════════════════════════════════════════════════════════
+UPLOAD_DIR = PyPath("storage/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@csrf_exempt
+def hypo_upload(request):
+    """Отдельная загрузка файла для гипотез: вернуть листы и столбцы каждого листа."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Только POST"}, status=405)
+    files = request.FILES.getlist("file")
+    if not files:
+        return JsonResponse({"error": "Файл не найден"}, status=400)
+    file_obj = files[0]
+    if not file_obj.name.endswith((".xlsx", ".xls")):
+        return JsonResponse({"error": "Только Excel файлы"}, status=400)
+
+    target = UPLOAD_DIR / f"hypo_{uuid.uuid4().hex}.xlsx"
+    with open(target, "wb+") as dst:
+        for chunk in file_obj.chunks():
+            dst.write(chunk)
+    try:
+        columns = {}
+        with pd.ExcelFile(target) as xl:
+            sheets = xl.sheet_names
+            for s in sheets:
+                head = pd.read_excel(target, sheet_name=s, nrows=1)
+                columns[s] = [str(c) for c in head.columns]
+        return JsonResponse({"status": "ok", "file_path": str(target.absolute()), "sheets": sheets, "columns": columns})
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500)
+
 
 @csrf_exempt
 def hypo_start(request):
@@ -50,6 +81,7 @@ def hypo_start(request):
 
     file_path = data.get("file_path", "")
     sheet = data.get("sheet", "")
+    column = str(data.get("column", "")).strip()
     if not file_path or not sheet:
         return JsonResponse({"error": "Не указан файл или лист"}, status=400)
 
@@ -57,6 +89,8 @@ def hypo_start(request):
         df = pd.read_excel(file_path, sheet_name=sheet)
     except Exception as exc:
         return JsonResponse({"error": f"Не удалось прочитать файл: {exc}"}, status=500)
+    if column and column not in df.columns:
+        return JsonResponse({"error": f"Столбец «{column}» не найден"}, status=400)
     colmap = resolve_columns(df.columns)
     rows = df.to_dict("records")
     model = _active_text_model()
@@ -65,7 +99,7 @@ def hypo_start(request):
     with HYPO_LOCK:
         HYPO_JOBS[job_id] = _new_hypo_job()
     threading.Thread(
-        target=run_hypothesis_job, args=(job_id, rows, colmap, model), daemon=True
+        target=run_hypothesis_job, args=(job_id, rows, colmap, model, column or None), daemon=True
     ).start()
     return JsonResponse({"job_id": job_id})
 
