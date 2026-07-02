@@ -1,0 +1,4102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deryabin</title>
+  <script src="{% static 'js/lucide.min.js' %}"></script>
+  <style>
+    :root {
+      /* тёмная неоновая тема: панели — стеклянные карточки поверх WebGL-фона */
+      --tg-bg: #070812;
+      --tg-surface: rgba(10, 11, 20, 0.22);
+      --tg-border: rgba(255, 255, 255, 0.09);
+      --tg-text: #ffffff;
+      --tg-muted: #aab0c4;
+      --tg-primary: #5073ff;
+      --tg-primary-dark: #3f5fe0;
+      --tg-danger: #ff5c40;
+      --blue-400: #7d9bff;
+      --blue-600: #5073ff;
+      --slate-200: rgba(255, 255, 255, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "SF Pro Text", "Segoe UI Variable", "Segoe UI", sans-serif;
+      color: var(--tg-text);
+      background: #05060c;
+    }
+
+    button, input, textarea, select { font: inherit; }
+
+    /* приложение — одна колонка поверх WebGL-фона; навигация в фиксированной шапке */
+    .app-shell {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding-top: 72px;
+    }
+
+    .main {
+      padding: 24px;
+      min-width: 0;
+    }
+
+    .panel {
+      display: none;
+      min-height: calc(100vh - 48px);
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .analysis-layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .analysis-sidebar {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+    }
+
+    .control-card,
+    .settings-card,
+    .chat-shell {
+      background: var(--tg-surface);
+      backdrop-filter: blur(22px);
+      border: 1px solid var(--tg-border);
+      border-radius: 28px;
+      box-shadow: 0 18px 55px rgba(15, 23, 42, 0.08);
+    }
+
+    .control-card {
+      padding: 24px;
+    }
+
+    .settings-card {
+      padding: 18px;
+    }
+
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .section-subtitle {
+      margin: 0 0 12px;
+      color: var(--tg-muted);
+      line-height: 1.4;
+      font-size: 0.9rem;
+    }
+
+    .settings-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .settings-column {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .settings-block {
+      background: rgba(15, 23, 42, 0.03);
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .field label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--tg-muted);
+    }
+
+    .input-style {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--tg-text);
+      outline: none;
+      transition: 0.2s ease;
+    }
+
+    .input-style:focus {
+      border-color: rgba(42, 171, 238, 0.65);
+      box-shadow: 0 0 0 4px rgba(42, 171, 238, 0.12);
+    }
+
+    textarea.input-style {
+      min-height: 240px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
+    .drop-zone {
+      border: 2px dashed rgba(42, 171, 238, 0.38);
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(42, 171, 238, 0.08), rgba(255, 255, 255, 0.8)),
+        #fff;
+      padding: 18px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      transform: translateY(-1px);
+      border-color: rgba(42, 171, 238, 0.8);
+      background:
+        linear-gradient(180deg, rgba(42, 171, 238, 0.14), rgba(255, 255, 255, 0.92)),
+        #fff;
+    }
+
+    .drop-zone p {
+      margin: 12px 0 0;
+      color: var(--tg-muted);
+      line-height: 1.45;
+    }
+
+    .row-inline {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+      border: 0;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 16px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--tg-primary), #53c8ff);
+      color: white;
+      box-shadow: 0 12px 30px rgba(42, 171, 238, 0.24);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--tg-primary-dark), #43bdf8);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--tg-text);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: white;
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background: rgba(240, 93, 94, 0.12);
+      color: var(--tg-danger);
+      border: 1px solid rgba(240, 93, 94, 0.18);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(240, 93, 94, 0.18);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.64;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .button-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    /* Android style switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    /* Custom slider to avoid default hover effects from accent-color */
+    input[type=range].custom-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type=range].custom-slider::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      background: linear-gradient(to right, var(--slider-color, #f05d5e) var(--slider-percent, 0%), #e2e8f0 var(--slider-percent, 0%));
+      border-radius: 3px;
+      border: none;
+    }
+    input[type=range].custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--slider-color, #f05d5e);
+      margin-top: -6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+    input[type=range].custom-slider:focus {
+      outline: none;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--tg-primary);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .toggle-row label.toggle-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--tg-text);
+      cursor: pointer;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .meta-box {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.04);
+      color: var(--tg-muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .notice {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .notice.show { display: block; }
+    .notice.info { background: rgba(42, 171, 238, 0.12); color: #0b6fa5; }
+    .notice.success { background: rgba(52, 199, 89, 0.12); color: #177f37; }
+    .notice.error { background: rgba(240, 93, 94, 0.12); color: #b63536; }
+
+    .chat-shell {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 48px);
+    }
+
+    .chat-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--tg-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .chat-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .chat-title h2 {
+      margin: 0;
+      font-size: 1.06rem;
+      font-weight: 700;
+    }
+
+    .chat-title p {
+      margin: 4px 0 0;
+      color: var(--tg-muted);
+      font-size: 0.92rem;
+    }
+
+    .progress-wrap {
+      min-width: 220px;
+      max-width: 360px;
+      width: 100%;
+    }
+
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 0.92rem;
+      color: var(--tg-muted);
+    }
+
+    .progress-head strong {
+      color: var(--tg-text);
+      font-size: 0.95rem;
+    }
+
+    .progress-bar-bg {
+      height: 8px;
+      background: var(--slate-200);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue-600), var(--blue-400));
+      width: 0%;
+      transition: width 0.4s ease;
+      border-radius: 999px;
+    }
+
+    .chat-body {
+      flex: 1;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.65), transparent 26%),
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08)),
+        var(--tg-bg);
+      overflow-y: auto;
+    }
+
+    .empty-state {
+      min-height: calc(100vh - 220px);
+      display: grid;
+      place-items: center;
+      color: var(--tg-muted);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .message-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .message-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .message-row:nth-child(odd) .message-bubble {
+      background: #ffffff;
+    }
+
+    .message-row:nth-child(even) .message-bubble {
+      background: #effdde;
+    }
+
+    .message-channel {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      background: rgba(42, 171, 238, 0.18);
+      color: var(--tg-primary);
+    }
+
+    .message-bubble {
+      width: min(760px, 100%);
+      border-radius: 24px 24px 24px 8px;
+      padding: 14px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.52);
+    }
+
+    .message-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .message-author {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #168ac4;
+    }
+
+    .message-score {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.83rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .message-score.high { background: rgba(240, 93, 94, 0.12); color: #d64041; }
+    .message-score.medium { background: rgba(255, 182, 72, 0.16); color: #b56c0d; }
+    .message-score.low { background: rgba(52, 199, 89, 0.16); color: #18863e; }
+
+    .message-image {
+      width: 100%;
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.06);
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 12px;
+    }
+
+    .message-image img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      max-height: 380px;
+    }
+
+    .message-image.placeholder {
+      color: var(--tg-muted);
+      font-size: 0.92rem;
+      padding: 28px;
+      text-align: center;
+      line-height: 1.45;
+    }
+
+    .message-text {
+      margin: 0;
+      line-height: 1.65;
+      font-size: 0.98rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .message-actions button {
+      min-width: 0;
+      width: 100%;
+      position: relative;
+      justify-content: center;
+      text-align: center;
+      padding-left: 48px;
+      padding-right: 16px;
+    }
+
+    .message-actions button i {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .message-actions button span {
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+
+    .settings-grid {
+      width: 100%;
+      height: 100%;
+      min-height: calc(100vh - 64px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.32);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 1180px) {
+      .analysis-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .analysis-sidebar {
+        position: static;
+      }
+
+      .chat-shell {
+        min-height: 720px;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .main {
+        padding: 16px;
+      }
+
+      .chat-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .progress-wrap {
+        max-width: none;
+      }
+
+      .row-inline {
+        grid-template-columns: 1fr;
+      }
+
+      .message-row {
+        align-items: flex-start;
+      }
+
+      .message-bubble {
+        width: 100%;
+      }
+
+      .message-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .message-actions button {
+        min-width: 100%;
+      }
+    }
+
+    /* ── Prompt Lab ───────────────────────────────────── */
+    .lab-wizard { display: flex; flex-direction: column; gap: 20px; }
+    .lab-step { display: none; }
+    .lab-step.active { display: block; }
+    .lab-step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .lab-step-header h2 { margin: 0; font-size: 1.15rem; font-weight: 700; }
+    .lab-step-badge { background: linear-gradient(135deg, var(--tg-primary), #53c8ff); color: white; font-size: 0.78rem; font-weight: 700; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+    .lab-card { background: var(--tg-surface); backdrop-filter: blur(22px); border: 1px solid var(--tg-border); border-radius: 22px; padding: 20px; box-shadow: 0 12px 36px rgba(15,23,42,0.07); }
+    .lab-card h3 { margin: 0 0 14px; font-size: 1rem; font-weight: 700; }
+    .lab-source-toggle { display: flex; gap: 0; margin-bottom: 16px; border-radius: 14px; overflow: hidden; border: 1px solid var(--tg-border); }
+    .lab-source-toggle button { flex: 1; border: 0; padding: 10px 16px; cursor: pointer; font-weight: 600; background: rgba(255,255,255,0.7); color: var(--tg-muted); transition: 0.2s; }
+    .lab-source-toggle button.active { background: linear-gradient(135deg, var(--tg-primary), #53c8ff); color: white; }
+    .lab-example-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px; background: rgba(15,23,42,0.025); border-radius: 16px; margin-bottom: 10px; border: 1px solid var(--tg-border); }
+    .lab-example-item textarea { flex: 1; min-height: 60px; resize: vertical; }
+    .lab-label-btn { border: 2px solid var(--tg-border); border-radius: 10px; padding: 6px 12px; cursor: pointer; font-size: 0.82rem; font-weight: 700; background: white; transition: 0.2s; white-space: nowrap; }
+    .lab-label-btn.positive { border-color: #22c55e; color: #16a34a; background: rgba(34,197,94,0.08); }
+    .lab-label-btn.negative { border-color: #f05d5e; color: #dc2626; background: rgba(240,93,94,0.08); }
+    .lab-label-btn.muted { opacity: 0.4; }
+    .lab-tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lab-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; background: rgba(42,171,238,0.1); color: var(--tg-primary); font-size: 0.85rem; font-weight: 600; }
+    .lab-tag button { border: 0; background: none; cursor: pointer; color: inherit; padding: 0; font-size: 1.1rem; line-height: 1; }
+    .lab-analysis-card { padding: 14px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--tg-border); }
+    .lab-analysis-card.positive { background: rgba(34,197,94,0.05); border-left: 4px solid #22c55e; }
+    .lab-analysis-card.negative { background: rgba(240,93,94,0.05); border-left: 4px solid #f05d5e; }
+    .lab-analysis-card h4 { margin: 0 0 8px; font-size: 0.92rem; }
+    .lab-analysis-card p { margin: 4px 0; font-size: 0.88rem; color: var(--tg-muted); line-height: 1.45; }
+    .lab-question-card { padding: 16px; border-radius: 16px; background: rgba(15,23,42,0.025); border: 1px solid var(--tg-border); margin-bottom: 14px; }
+    .lab-question-card h4 { margin: 0 0 10px; font-size: 0.95rem; }
+    .lab-question-card .why-hint { font-size: 0.82rem; color: var(--tg-primary); margin-top: 8px; }
+    .lab-radio-group { display: flex; flex-direction: column; gap: 6px; }
+    .lab-radio-group label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; padding: 6px 10px; border-radius: 10px; transition: 0.15s; }
+    .lab-radio-group label:hover { background: rgba(42,171,238,0.06); }
+    .lab-iteration-card { border-radius: 18px; border: 1px solid var(--tg-border); overflow: hidden; margin-bottom: 16px; }
+    .lab-iteration-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(15,23,42,0.03); }
+    .lab-iteration-header h4 { margin: 0; font-size: 0.95rem; font-weight: 700; }
+    .lab-score-badge { padding: 5px 14px; border-radius: 999px; font-weight: 700; font-size: 0.88rem; }
+    .lab-score-badge.high { background: rgba(34,197,94,0.15); color: #16a34a; }
+    .lab-score-badge.medium { background: rgba(255,182,72,0.18); color: #b56c0d; }
+    .lab-score-badge.low { background: rgba(240,93,94,0.12); color: #dc2626; }
+    .lab-iteration-body { padding: 16px 18px; }
+    .lab-test-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(148,163,184,0.12); font-size: 0.88rem; }
+    .lab-test-row:last-child { border-bottom: none; }
+    .lab-test-icon { font-size: 1.1rem; }
+    .lab-scores-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .lab-score-item { padding: 10px 14px; border-radius: 12px; background: rgba(15,23,42,0.03); }
+    .lab-score-item .label { font-size: 0.8rem; color: var(--tg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .lab-score-item .value { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
+    .lab-prompt-preview { background: rgba(15,23,42,0.04); border: 1px solid var(--tg-border); border-radius: 14px; padding: 14px; font-family: 'SF Mono', 'Consolas', monospace; font-size: 0.85rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; margin: 10px 0; }
+    .lab-nav-buttons { display: flex; gap: 12px; justify-content: flex-end; margin-top: 18px; }
+
+    /* ── Landing (главная страница) ───────────────────── */
+    html { scroll-behavior: smooth; }
+    body.landing-active { background: #050508; }
+    body.landing-active .app-shell { display: none; }
+    body:not(.landing-active) #landing { display: none; }
+
+    #landing {
+      position: relative;
+      background: transparent; /* canvas — сосед сзади: непрозрачный фон закрыл бы всю анимацию */
+      color: #e8eaf2;
+      font-family: "SF Pro Display", "SF Pro Text", "Segoe UI Variable", "Segoe UI", sans-serif;
+      overflow-x: clip;
+    }
+
+    .lnav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 28px;
+      border-bottom: 1px solid transparent;
+      transition: background 0.35s ease, border-color 0.35s ease, backdrop-filter 0.35s ease;
+    }
+    .lnav.scrolled {
+      background: rgba(5, 5, 8, 0.7);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom-color: rgba(255, 255, 255, 0.07);
+    }
+    .lnav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #fff;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .lnav-brand .spark { color: #8fa5ff; }
+    .lnav-links { display: flex; gap: 2px; }
+    .lnav-links button {
+      border: 0;
+      background: none;
+      color: #9aa1b5;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.92rem;
+      transition: 0.2s;
+      white-space: nowrap;
+    }
+    .lnav-links button:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
+
+    .lsection {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px;
+    }
+    #lparticles {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .lcontent {
+      position: relative;
+      z-index: 2;
+      max-width: 1060px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .lchip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #c9cede;
+      font-size: 0.85rem;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .lchip .spark { color: #a5b4ff; font-size: 0.8rem; }
+
+    .lh1, .lh2 {
+      margin: 26px auto 0;
+      font-weight: 420;
+      letter-spacing: -0.02em;
+      line-height: 1.14;
+      max-width: 880px;
+    }
+    .lh1 { font-size: clamp(2.4rem, 6vw, 4.2rem); }
+    .lh2 { font-size: clamp(1.9rem, 4.4vw, 3.1rem); }
+
+    .lword {
+      display: inline-block;
+      opacity: 0;
+      filter: blur(16px);
+      transform: translateY(16px);
+      transition: opacity 0.8s ease, filter 0.8s ease, transform 0.8s ease;
+    }
+    .on .lword { opacity: 1; filter: blur(0); transform: none; }
+
+    .lsub {
+      color: #a7adc2;
+      max-width: 580px;
+      margin: 22px auto 0;
+      line-height: 1.65;
+      font-size: 1.02rem;
+    }
+
+    .lreveal {
+      opacity: 0;
+      transform: translateY(30px);
+      filter: blur(10px);
+      transition: opacity 0.9s cubic-bezier(0.2, 0.6, 0.2, 1),
+                  transform 0.9s cubic-bezier(0.2, 0.6, 0.2, 1),
+                  filter 0.9s cubic-bezier(0.2, 0.6, 0.2, 1);
+    }
+    .lreveal.on { opacity: 1; transform: none; filter: none; }
+
+    .lbtns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      margin-top: 36px;
+      flex-wrap: wrap;
+    }
+    .lbtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.25s;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .lbtn:hover {
+      background: rgba(255, 255, 255, 0.13);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 44px rgba(110, 130, 255, 0.18);
+    }
+    .lbtn .arr {
+      width: 26px;
+      height: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      transition: 0.25s;
+    }
+    .lbtn:hover .arr { background: #fff; border-color: #fff; color: #0b0b10; }
+    .lbtn-ghost {
+      background: transparent;
+      border-color: rgba(255, 255, 255, 0.09);
+      color: #b9bfd2;
+    }
+    .lbtn-ghost:hover { color: #fff; box-shadow: none; }
+
+    .lsteps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 14px;
+      margin: 44px auto 0;
+      max-width: 1020px;
+      text-align: left;
+    }
+    .lstep {
+      background: rgba(12, 13, 20, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .lstep .num {
+      font-size: 1.45rem;
+      font-weight: 600;
+      background: linear-gradient(120deg, #7d9bff, #ff7a5c);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .lstep p { margin: 10px 0 0; color: #aab0c4; font-size: 0.9rem; line-height: 1.5; }
+
+    .lfloat-card {
+      position: absolute;
+      z-index: 3;
+      width: 250px;
+      text-align: left;
+      background: rgba(10, 11, 18, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 16px;
+      padding: 18px 20px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      animation: lfloat 7s ease-in-out infinite;
+    }
+    .lfloat-card .k {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      color: #8b91a6;
+      text-transform: uppercase;
+    }
+    .lfloat-card .v {
+      font-size: 2rem;
+      font-weight: 600;
+      margin: 6px 0 4px;
+      background: linear-gradient(120deg, #9db4ff, #ff8d70);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .lfloat-card p { margin: 0; color: #a3a9bd; font-size: 0.85rem; line-height: 1.5; }
+    @keyframes lfloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-14px); }
+    }
+
+    .lscroll-hint {
+      position: absolute;
+      bottom: 26px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      color: #6f7590;
+      font-size: 1.2rem;
+      animation: lbounce 2s ease-in-out infinite;
+    }
+    @keyframes lbounce {
+      0%, 100% { transform: translate(-50%, 0); opacity: 0.5; }
+      50% { transform: translate(-50%, 10px); opacity: 1; }
+    }
+
+    .lfinal {
+      min-height: 78vh;
+      background:
+        radial-gradient(ellipse 70% 55% at 50% 115%, rgba(90, 70, 190, 0.22), transparent 70%),
+        radial-gradient(ellipse 50% 40% at 68% 118%, rgba(200, 70, 60, 0.14), transparent 70%);
+    }
+    .lfooter {
+      position: relative;
+      z-index: 2;
+      padding: 26px;
+      text-align: center;
+      color: #5d6378;
+      font-size: 0.85rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .back-fab {
+      position: fixed;
+      right: 24px;
+      top: 12px;
+      z-index: 60;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(13, 16, 28, 0.88);
+      color: #fff;
+      padding: 11px 22px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.92rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 14px 38px rgba(0, 0, 0, 0.4);
+      transition: 0.2s;
+    }
+    .back-fab:hover { background: rgba(34, 40, 62, 0.95); transform: translateY(-2px); }
+    body:not(.landing-active) .back-fab { display: inline-flex; }
+
+    @media (max-width: 900px) {
+      .lnav { padding: 12px 16px; }
+      .lnav-links { display: none; }
+      .lfloat-card { display: none; }
+      .lsection { padding: 100px 18px; }
+    }
+
+    /* ══ Тёмные glass-панели приложения поверх WebGL-фона ══ */
+    body:not(.landing-active) .lnav {
+      background: rgba(5, 6, 12, 0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+    /* в приложении CTA «Начать работу» уступает место кнопке «Назад» в шапке */
+    body:not(.landing-active) .lnav > .lbtn { visibility: hidden; transition: none; }
+    .lnav-brand { cursor: pointer; }
+    .lnav-links button.active { color: #fff; background: rgba(80, 115, 255, 0.22); }
+
+    .control-card,
+    .settings-card,
+    .chat-shell,
+    .lab-card {
+      /* почти полностью прозрачные, почти без размытия — матрица видна насквозь */
+      background: rgba(10, 11, 20, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+    }
+    /* тень под текстом панелей — читабельность поверх ярких частиц */
+    #panel-analysis, #panel-lab, #panel-hypo, #panel-anon, #panel-settings {
+      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
+    }
+
+    .settings-block {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .input-style {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+    .input-style::placeholder { color: rgba(170, 176, 196, 0.6); }
+    .input-style:focus {
+      border-color: rgba(80, 115, 255, 0.65);
+      box-shadow: 0 0 0 4px rgba(80, 115, 255, 0.15);
+    }
+    select.input-style option { background: #0d1020; color: #fff; }
+
+    .drop-zone {
+      border-color: rgba(80, 115, 255, 0.4);
+      background: linear-gradient(180deg, rgba(80, 115, 255, 0.1), rgba(10, 11, 20, 0.4));
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: rgba(80, 115, 255, 0.85);
+      background: linear-gradient(180deg, rgba(80, 115, 255, 0.18), rgba(10, 11, 20, 0.5));
+    }
+
+    .btn-primary { box-shadow: 0 12px 30px rgba(80, 115, 255, 0.3); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+
+    .slider { background-color: rgba(255, 255, 255, 0.16); }
+    input[type=range].custom-slider::-webkit-slider-runnable-track {
+      background: linear-gradient(to right, var(--slider-color, #ff5c40) var(--slider-percent, 0%), rgba(255, 255, 255, 0.12) var(--slider-percent, 0%));
+    }
+
+    .meta-box { background: rgba(255, 255, 255, 0.05); }
+    .notice.info { background: rgba(80, 115, 255, 0.16); color: #9db4ff; }
+    .notice.success { background: rgba(52, 199, 89, 0.14); color: #7fe0a2; }
+    .notice.error { background: rgba(255, 92, 64, 0.14); color: #ff9c8a; }
+
+    .chat-header { background: rgba(255, 255, 255, 0.03); }
+    .chat-body { background: transparent; }
+    .progress-bar-bg { background: rgba(255, 255, 255, 0.1); }
+
+    .message-row:nth-child(odd) .message-bubble { background: rgba(16, 18, 32, 0.68); }
+    .message-row:nth-child(even) .message-bubble { background: rgba(22, 28, 48, 0.68); }
+    .message-bubble {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .message-author { color: #8fa5ff; }
+    .message-channel { background: rgba(80, 115, 255, 0.18); color: #9db4ff; }
+    .message-image { background: rgba(255, 255, 255, 0.05); }
+    .message-score.high { background: rgba(255, 92, 64, 0.16); color: #ff9c8a; }
+    .message-score.medium { background: rgba(255, 182, 72, 0.16); color: #ffc46b; }
+    .message-score.low { background: rgba(52, 199, 89, 0.16); color: #7fe0a2; }
+
+    .lab-source-toggle { border-color: rgba(255, 255, 255, 0.12); }
+    .lab-source-toggle button { background: rgba(255, 255, 255, 0.05); color: var(--tg-muted); }
+    .lab-source-toggle button.active { background: linear-gradient(135deg, var(--tg-primary), #53c8ff); color: #fff; }
+    .lab-example-item { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+    .lab-label-btn { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.14); color: #e5e9f5; }
+    .lab-label-btn.positive { border-color: rgba(52, 199, 89, 0.7); color: #7fe0a2; background: rgba(52, 199, 89, 0.12); }
+    .lab-label-btn.negative { border-color: rgba(255, 92, 64, 0.7); color: #ff9c8a; background: rgba(255, 92, 64, 0.12); }
+    .lab-tag { background: rgba(80, 115, 255, 0.16); color: #9db4ff; }
+    .lab-analysis-card { border-color: rgba(255, 255, 255, 0.08); }
+    .lab-analysis-card.positive { background: rgba(52, 199, 89, 0.07); }
+    .lab-analysis-card.negative { background: rgba(255, 92, 64, 0.07); }
+    .lab-question-card { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+    .lab-radio-group label:hover { background: rgba(80, 115, 255, 0.1); }
+    .lab-iteration-card { border-color: rgba(255, 255, 255, 0.08); }
+    .lab-iteration-header { background: rgba(255, 255, 255, 0.04); }
+    .lab-score-badge.high { background: rgba(52, 199, 89, 0.16); color: #7fe0a2; }
+    .lab-score-badge.medium { background: rgba(255, 182, 72, 0.16); color: #ffc46b; }
+    .lab-score-badge.low { background: rgba(255, 92, 64, 0.14); color: #ff9c8a; }
+    .lab-test-row { border-bottom-color: rgba(255, 255, 255, 0.08); }
+    .lab-score-item { background: rgba(255, 255, 255, 0.04); }
+    .lab-prompt-preview { background: rgba(0, 0, 0, 0.35); border-color: rgba(255, 255, 255, 0.1); color: #cdd3e4; }
+  </style>
+</head>
+<body class="landing-active">
+  <!-- Единый WebGL-фон: виден и на лендинге, и под панелями приложения -->
+  <canvas id="lparticles"></canvas>
+
+  <!-- Верхняя навигация: центр управления, остаётся фиксированной в приложении -->
+  <header class="lnav" id="lnav">
+    <div class="lnav-brand" onclick="showLanding()" title="На главную"><span class="spark">✦</span> Deryabin</div>
+    <nav class="lnav-links">
+      <button data-tab-button="analysis" onclick="enterApp('analysis')">Анализ</button>
+      <button data-tab-button="lab" onclick="enterApp('lab')">Лаборатория</button>
+      <button data-tab-button="hypo" onclick="enterApp('hypo')">Гипотезы</button>
+      <button data-tab-button="anon" onclick="enterApp('anon')">Обезличивание</button>
+      <button data-tab-button="settings" onclick="enterApp('settings')">Настройки</button>
+    </nav>
+    <button class="lbtn" onclick="enterApp('analysis')">Начать работу <span class="arr">→</span></button>
+  </header>
+
+  <div id="landing">
+
+    <!-- Hero: дышащая сфера (WebGL, состояние 1) -->
+    <section class="lsection lhero">
+      <div class="lcontent">
+        <div class="lchip lreveal"><span class="spark">✦</span> Добро пожаловать в новую эру анализа</div>
+        <h1 class="lh1" data-words>Технологии, которые меняют природу работы с документами</h1>
+        <p class="lsub lreveal" style="transition-delay:.55s">Один инструмент на пересечении данных и интеллекта: оценка документов, лаборатория промптов, аудиторские гипотезы и защита персональных данных.</p>
+        <div class="lbtns lreveal" style="transition-delay:.75s">
+          <button class="lbtn" onclick="enterApp('analysis')">Начать работу <span class="arr">→</span></button>
+          <button class="lbtn lbtn-ghost" onclick="document.getElementById('ls-analysis').scrollIntoView()">Как это работает</button>
+        </div>
+      </div>
+      <div class="lscroll-hint">↓</div>
+    </section>
+
+    <!-- Анализ (состояние 2→3: сфера перетекает в ДНК) -->
+    <section class="lsection" id="ls-analysis">
+      <div class="lcontent">
+        <div class="lchip lreveal"><span class="spark">✦</span> Анализ</div>
+        <h2 class="lh2" data-words>Каждому документу — своя оценка</h2>
+        <p class="lsub lreveal" style="transition-delay:.3s">Загрузите Excel — модель прочитает каждый документ, оценит его релевантность от 0 до 100 и соберёт ленту только из тех, что прошли ваш порог отбора.</p>
+        <div class="lsteps lreveal" style="transition-delay:.45s">
+          <div class="lstep"><div class="num">01</div><p>Загрузите Excel-файл с документами</p></div>
+          <div class="lstep"><div class="num">02</div><p>Выберите лист и столбец с текстом</p></div>
+          <div class="lstep"><div class="num">03</div><p>Задайте минимальную оценку — порог отбора</p></div>
+          <div class="lstep"><div class="num">04</div><p>Нажмите «Анализировать» и следите за лентой</p></div>
+          <div class="lstep"><div class="num">05</div><p>Скачайте Excel с оценками по каждой строке</p></div>
+        </div>
+        <div class="lbtns lreveal" style="transition-delay:.6s">
+          <button class="lbtn" onclick="enterApp('analysis')">Перейти к анализу <span class="arr">→</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Лаборатория (состояние 3: зум внутрь спирали) -->
+    <section class="lsection" id="ls-lab">
+      <div class="lfloat-card lreveal" style="left:6%; top:30%;">
+        <div class="k">Итерации улучшения</div>
+        <div class="v">3–5</div>
+        <p>обычно достаточно, чтобы промпт прошёл все тесты на ваших примерах.</p>
+      </div>
+      <div class="lfloat-card lreveal" style="right:6%; top:52%; animation-delay:-3.5s;">
+        <div class="k">Примеры для старта</div>
+        <div class="v">10+</div>
+        <p>размеченных примеров хватает, чтобы модель поняла ваши критерии.</p>
+      </div>
+      <div class="lcontent">
+        <div class="lchip lreveal"><span class="spark">✦</span> Лаборатория промптов</div>
+        <h2 class="lh2" data-words>Промпт, который настраивается сам</h2>
+        <p class="lsub lreveal" style="transition-delay:.3s">Итеративный подбор промпта на ваших примерах: модель анализирует разметку, задаёт уточняющие вопросы и улучшает формулировки, пока тесты не сойдутся.</p>
+        <div class="lsteps lreveal" style="transition-delay:.45s">
+          <div class="lstep"><div class="num">01</div><p>Загрузите примеры — из Excel или вручную — и разметьте: подходит / не подходит</p></div>
+          <div class="lstep"><div class="num">02</div><p>Ответьте на уточняющие вопросы модели</p></div>
+          <div class="lstep"><div class="num">03</div><p>Запустите итерации — каждая проверяется на ваших примерах</p></div>
+          <div class="lstep"><div class="num">04</div><p>Сохраните лучший промпт как активный профиль</p></div>
+        </div>
+        <div class="lbtns lreveal" style="transition-delay:.6s">
+          <button class="lbtn" onclick="enterApp('lab')">Открыть лабораторию <span class="arr">→</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Гипотезы (состояние 3: зум внутрь спирали) -->
+    <section class="lsection" id="ls-hypo">
+      <div class="lcontent">
+        <div class="lchip lreveal"><span class="spark">✦</span> Гипотезы</div>
+        <h2 class="lh2" data-words>От массива документов — к гипотезам аудита</h2>
+        <p class="lsub lreveal" style="transition-delay:.3s">Инструмент группирует близкие по смыслу документы и по каждому кластеру формулирует проверяемые аудиторские гипотезы — с опорой на ваши теги и инструкции.</p>
+        <div class="lsteps lreveal" style="transition-delay:.45s">
+          <div class="lstep"><div class="num">01</div><p>Загрузите Excel с документами</p></div>
+          <div class="lstep"><div class="num">02</div><p>Выберите лист и столбец с текстом</p></div>
+          <div class="lstep"><div class="num">03</div><p>При необходимости уточните теги, инструкции и пример</p></div>
+          <div class="lstep"><div class="num">04</div><p>Запустите генерацию и получите готовые гипотезы</p></div>
+        </div>
+        <div class="lbtns lreveal" style="transition-delay:.6s">
+          <button class="lbtn" onclick="enterApp('hypo')">Перейти к гипотезам <span class="arr">→</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Обезличивание (состояние 3) -->
+    <section class="lsection" id="ls-anon">
+      <div class="lcontent">
+        <div class="lchip lreveal"><span class="spark">✦</span> Обезличивание</div>
+        <h2 class="lh2" data-words>Данные остаются. Личное — исчезает</h2>
+        <p class="lsub lreveal" style="transition-delay:.3s">Удаляет ФИО, номера и другую чувствительную информацию из текста или целого Excel-файла, сохраняя структуру и смысл документа.</p>
+        <div class="lsteps lreveal" style="transition-delay:.45s">
+          <div class="lstep"><div class="num">01</div><p>Вставьте текст или загрузите Excel-файл</p></div>
+          <div class="lstep"><div class="num">02</div><p>Запустите обезличивание</p></div>
+          <div class="lstep"><div class="num">03</div><p>Скопируйте очищенный текст или скачайте файл</p></div>
+        </div>
+        <div class="lbtns lreveal" style="transition-delay:.6s">
+          <button class="lbtn" onclick="enterApp('anon')">Перейти к обезличиванию <span class="arr">→</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Финал -->
+    <section class="lsection lfinal">
+      <div class="lcontent">
+        <div class="lchip lreveal"><span class="spark">✦</span> Настройки</div>
+        <h2 class="lh2" data-words>Готовы начать?</h2>
+        <p class="lsub lreveal" style="transition-delay:.3s">Выберите модель и параметры подключения в «Настройках» — и запускайте первый анализ.</p>
+        <div class="lbtns lreveal" style="transition-delay:.45s">
+          <button class="lbtn" onclick="enterApp('analysis')">Начать работу <span class="arr">→</span></button>
+          <button class="lbtn lbtn-ghost" onclick="enterApp('settings')">Открыть настройки</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="lfooter">Техничееская поддержка - Дерябин Денис</footer>
+  </div>
+
+  <button class="back-fab" onclick="backToLanding()"><span>←</span> Назад</button>
+
+  <div class="app-shell">
+    <main class="main">
+      <section id="panel-analysis" class="panel active">
+        <div class="analysis-layout">
+          <div class="analysis-sidebar">
+            <div class="control-card">
+              <h2 class="section-title">Источник новостей</h2>
+
+              <div id="dropZone" class="drop-zone" onclick="document.getElementById('excelInput').click()">
+                <input id="excelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(this.files)">
+                <i data-lucide="file-spreadsheet" style="width:34px;height:34px;color:#2aabee;"></i>
+                <p>Перетащите Excel-файл сюда или нажмите для выбора</p>
+              </div>
+
+              <div class="notice" id="uploadNotice"></div>
+
+              <div class="field" style="margin-top:18px;">
+                <label for="sheetSelect">Лист</label>
+                <select id="sheetSelect" class="input-style" disabled onchange="onSheetChange()">
+                  <option>Загрузите файл</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="columnSelect">Столбец с текстом новости</label>
+                <select id="columnSelect" class="input-style" disabled onchange="onColumnChange()">
+                  <option>Сначала выберите лист</option>
+                </select>
+              </div>
+
+              <div class="meta-box" id="rowCountInfo">Файл еще не загружен.</div>
+
+              <div class="row-inline" style="margin-top:18px;">
+                <div class="field" style="margin-bottom:0;">
+                  <label for="thresholdInput">Минимальная оценка (0–100)</label>
+                  <input id="thresholdInput" class="input-style" type="number" step="1" min="0" max="100" value="70">
+                </div>
+                <div class="button-stack" style="margin-top:0;">
+                  <button id="btnAnalyze" class="btn-primary" disabled onclick="startAnalysis()">
+                    <i data-lucide="play" style="width:18px;height:18px;"></i>
+                    <span id="btnAnalyzeLabel">Анализировать</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="toggle-row" style="margin-top:18px;">
+                <label class="switch">
+                  <input type="checkbox" id="generateImageToggle" checked>
+                  <span class="slider"></span>
+                </label>
+                <label for="generateImageToggle" class="toggle-label" onclick="document.getElementById('generateImageToggle').click()">Генерировать картинку</label>
+              </div>
+
+              <div class="toggle-row" style="margin-bottom: 18px;">
+                <label class="switch">
+                  <input type="checkbox" id="addLinkToggle" checked>
+                  <span class="slider"></span>
+                </label>
+                <label for="addLinkToggle" class="toggle-label" onclick="document.getElementById('addLinkToggle').click()">Добавлять ссылку в ответ</label>
+              </div>
+
+              <div class="button-stack">
+                <a id="ratedDownloadLink" class="btn-secondary" href="#" style="display:none;text-decoration:none;">
+                  <i data-lucide="download" style="width:18px;height:18px;"></i>
+                  <span>Скачать Excel с оценками</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-shell">
+            <div class="chat-header">
+              <div class="chat-title">
+                <div>
+                  <h2>Лента документов</h2>
+                  <p>Сообщения появляются только для документов с оценкой не ниже выбранного порога.</p>
+                </div>
+              </div>
+
+              <div class="progress-wrap">
+                <div class="progress-head">
+                  <strong id="ratingStage">Ожидание...</strong>
+                  <span id="ratingCounter">0 / 0</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div id="ratingBarFill" class="progress-bar-fill"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-body">
+              <div class="empty-state" id="emptyState">
+                <div>
+                  <i data-lucide="message-circle-more" style="width:38px;height:38px;color:#2aabee;"></i>
+                  <p>После запуска анализа здесь появятся сообщения в стиле Telegram.</p>
+                </div>
+              </div>
+              <div class="message-list" id="messageList" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-settings" class="panel">
+        <div class="settings-grid">
+          <div class="settings-card" style="margin-bottom:18px;">
+            <h3 style="margin: 0 0 16px; font-size: 1.05rem;">Модели нейросети</h3>
+            <div class="row-inline">
+              <div class="field" style="margin-bottom:0;">
+                <label for="textModelSelect">Модель для текста (оценка, суммаризация, гипотезы)</label>
+                <select id="textModelSelect" class="input-style"></select>
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label for="imageModelSelect">Модель для картинок</label>
+                <select id="imageModelSelect" class="input-style"></select>
+              </div>
+            </div>
+            <div class="settings-actions" style="padding-top:16px;">
+              <button class="btn-primary" onclick="savePrompt()">
+                <i data-lucide="save" style="width:24px;height:24px;"></i>
+                <span>Сохранить настройки</span>
+              </button>
+            </div>
+            <div class="notice" id="modelsNotice"></div>
+          </div>
+
+          <div class="settings-split">
+            <!-- Left Column: Analysis -->
+            <div class="settings-card" style="height: 100%; display: flex; flex-direction: column;">
+              <h3 style="margin: 0 0 16px; font-size: 1.05rem;">Промпт оценки (анализа)</h3>
+              <div class="field">
+                <label for="promptName">Профиль</label>
+                <select id="promptName" class="input-style" onchange="onProfileSelect('analysis')"></select>
+              </div>
+              <div class="field" style="flex: 1; display: flex; flex-direction: column;">
+                <label for="promptInput">Текст промпта</label>
+                <textarea id="promptInput" class="input-style" style="flex: 1; min-height: 200px; resize: none;"></textarea>
+              </div>
+              <div class="settings-actions" style="margin-top: auto; padding-top: 16px;">
+                <button class="btn-primary" onclick="savePrompt()">
+                  <i data-lucide="save" style="width:24px;height:24px;"></i>
+                  <span>Сохранить настройки</span>
+                </button>
+              </div>
+              <div class="notice" id="settingsNotice"></div>
+            </div>
+
+            <!-- Right Column: Summary & Image -->
+            <div class="settings-column">
+              <div class="settings-card" style="flex: 1; display: flex; flex-direction: column;">
+                <h3 style="margin: 0 0 16px; font-size: 1.05rem;">Промпт суммаризации</h3>
+                <div class="field">
+                  <label for="summaryName">Профиль</label>
+                  <select id="summaryName" class="input-style" onchange="onProfileSelect('summary')"></select>
+                </div>
+                <div class="field" style="flex: 1; display: flex; flex-direction: column;">
+                  <label for="summaryPromptInput">Текст промпта</label>
+                  <textarea id="summaryPromptInput" class="input-style" style="flex: 1; min-height: 100px; resize: none;"></textarea>
+                </div>
+                <div class="settings-actions" style="margin-top: auto; padding-top: 16px;">
+                  <button class="btn-primary" onclick="savePrompt()">
+                    <i data-lucide="save" style="width:24px;height:24px;"></i>
+                    <span>Сохранить настройки</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-card" style="flex: 1; display: flex; flex-direction: column;">
+                <h3 style="margin: 0 0 16px; font-size: 1.05rem;">Промпт генерации картинки</h3>
+                <div class="field">
+                  <label for="imageName">Профиль</label>
+                  <select id="imageName" class="input-style" onchange="onProfileSelect('image')"></select>
+                </div>
+                <div class="field" style="flex: 1; display: flex; flex-direction: column;">
+                  <label for="imagePromptInput">Текст промпта</label>
+                  <textarea id="imagePromptInput" class="input-style" style="flex: 1; min-height: 100px; resize: none;"></textarea>
+                </div>
+                <div class="settings-actions" style="margin-top: auto; padding-top: 16px;">
+                  <button class="btn-primary" onclick="savePrompt()">
+                    <i data-lucide="save" style="width:24px;height:24px;"></i>
+                    <span>Сохранить настройки</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ Prompt Laboratory Panel ═══ -->
+      <section id="panel-lab" class="panel">
+        <div class="lab-wizard">
+
+          <!-- Step 1: Data Collection -->
+          <div id="labStep1" class="lab-step active">
+            <div class="lab-step-header">
+              <span class="lab-step-badge">Шаг 1 из 4</span>
+              <h2>Сбор данных</h2>
+            </div>
+
+            <div class="lab-card">
+              <h3>Источник данных</h3>
+              <div class="lab-source-toggle">
+                <button class="active" onclick="labSetSource('manual')">Ввести вручную</button>
+                <button onclick="labSetSource('excel')">Загрузить Excel</button>
+              </div>
+
+              <!-- Manual input -->
+              <div id="labSourceManual">
+                <div id="labExamplesContainer"></div>
+                <button class="btn-secondary" style="margin-top:10px;" onclick="labAddExample()">
+                  <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                  <span>Добавить документ вручную</span>
+                </button>
+              </div>
+
+              <!-- Excel input -->
+              <div id="labSourceExcel" style="display:none;">
+                <div id="labDropZone" class="drop-zone" onclick="document.getElementById('labExcelInput').click()">
+                  <input id="labExcelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="labHandleExcel(this.files)">
+                  <i data-lucide="file-spreadsheet" style="width:30px;height:30px;color:#2aabee;"></i>
+                  <p>Перетащите Excel-файл</p>
+                </div>
+                <div class="field" style="margin-top:12px;">
+                  <label>Лист</label>
+                  <select id="labSheetSelect" class="input-style" disabled onchange="labOnSheetChange()"><option>Загрузите файл</option></select>
+                </div>
+                <div class="field">
+                  <label>Столбец с пересказом</label>
+                  <select id="labColumnSelect" class="input-style" disabled onchange="labOnColumnChange()"><option>Сначала выберите лист</option></select>
+                </div>
+                <div id="labExcelRows" style="margin-top:12px;"></div>
+              </div>
+            </div>
+
+            <div class="lab-card">
+              <h3>Ваш запрос</h3>
+              <div class="field">
+                <label>Что должен делать промпт? (свободный комментарий)</label>
+                <textarea id="labComment" class="input-style" rows="3" placeholder="Например: Хочу чтобы промпт оценивал важность документов для аудиторов, учитывал финансовые риски и сроки поручений..."></textarea>
+              </div>
+            </div>
+
+            <div class="lab-card">
+              <h3>Обязательные параметры</h3>
+              <div class="field">
+                <label>Целевая аудитория (кто будет читать результат)</label>
+                <input id="labAudience" class="input-style" placeholder="Например: Аудиторы блока Сервисы">
+              </div>
+
+              <div class="field" id="labSuccessThresholdField">
+                <label>Проходной балл (1-100) — если балл ≥ порогу, тест считается успешно позитивным</label>
+                <input id="labSuccessThreshold" class="input-style" type="number" value="70">
+              </div>
+              <div class="field">
+                <label>Масштаб анализа (опишите своими словами, необязательно)</label>
+                <input id="labScale" class="input-style" type="text" placeholder="Например: вся компания; влияние на бизнес-направление; отдельный отдел">
+              </div>
+              <div class="field">
+                <label>Темы для поиска</label>
+                <div style="display:flex;gap:8px;">
+                  <input id="labTopicInput" class="input-style" placeholder="Например: Финансовые риски" onkeydown="if(event.key==='Enter'){event.preventDefault();labAddTopic()}">
+                  <button class="btn-secondary" onclick="labAddTopic()" style="white-space:nowrap;">+ Тема</button>
+                </div>
+                <div id="labTopicsList" class="lab-tag-list" style="margin-top:8px;"></div>
+              </div>
+            </div>
+
+            <div class="lab-card">
+              <h3>Настройки</h3>
+              <div class="toggle-row">
+                <label class="switch">
+                  <input type="checkbox" id="labAskQuestions" checked>
+                  <span class="slider"></span>
+                </label>
+                <label for="labAskQuestions" class="toggle-label" onclick="document.getElementById('labAskQuestions').click()">Задавать уточняющие вопросы</label>
+              </div>
+            </div>
+
+            <div class="notice" id="labNotice"></div>
+
+            <div class="lab-nav-buttons">
+              <button class="btn-primary" onclick="labStartAnalysis()">
+                <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+                <span>Далее → Анализ примеров</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: Analysis -->
+          <div id="labStep2" class="lab-step">
+            <div class="lab-step-header">
+              <span class="lab-step-badge">Шаг 2 из 4</span>
+              <h2>Анализ примеров</h2>
+            </div>
+
+            <div class="lab-card">
+              <div class="progress-wrap">
+                <div class="progress-head">
+                  <strong id="labAnalysisStage">Запуск...</strong>
+                  <span id="labAnalysisCounter">0 / 0</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div id="labAnalysisBar" class="progress-bar-fill"></div>
+                </div>
+                <div style="margin-top: 10px; text-align: right;">
+                  <button class="btn-secondary" style="color: #ef4444;" onclick="labCancel()">
+                    <i data-lucide="square" style="width:14px;height:14px;"></i>
+                    <span>Остановить</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div id="labAnalysisResults"></div>
+            <div id="labConsolidationResult" style="display:none;"></div>
+
+            <div class="lab-nav-buttons" id="labStep2Nav" style="display:none;">
+              <button class="btn-secondary" onclick="labGoToStep(1)">← Назад</button>
+              <button class="btn-primary" onclick="labProceedFromStep2()">
+                <span>Далее →</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Questions -->
+          <div id="labStep3" class="lab-step">
+            <div class="lab-step-header">
+              <span class="lab-step-badge">Шаг 3 из 4</span>
+              <h2>Уточняющие вопросы</h2>
+            </div>
+
+            <div class="lab-card">
+              <p style="color:var(--tg-muted);margin:0 0 16px;">AI проанализировал ваши примеры и хочет уточнить:</p>
+              <div id="labQuestionsContainer"></div>
+            </div>
+
+            <div class="lab-nav-buttons">
+              <button class="btn-secondary" onclick="labGoToStep(1)">← Назад</button>
+              <button class="btn-primary" onclick="labSubmitAnswers()">
+                <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+                <span>Далее → Генерация промпта</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 4: Generation -->
+          <div id="labStep4" class="lab-step">
+            <div class="lab-step-header">
+              <span class="lab-step-badge">Шаг 4 из 4</span>
+              <h2>Генерация промпта</h2>
+            </div>
+
+            <div class="lab-card" id="labGenProgress">
+              <div class="progress-wrap">
+                <div class="progress-head">
+                  <strong id="labGenStage">Генерация...</strong>
+                  <span id="labGenCounter">0 / 0</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div id="labGenBar" class="progress-bar-fill"></div>
+                </div>
+                <div style="margin-top: 10px; text-align: right;">
+                  <button class="btn-secondary" style="color: #ef4444;" onclick="labCancel()">
+                    <i data-lucide="square" style="width:14px;height:14px;"></i>
+                    <span>Остановить</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div id="labIterationsContainer"></div>
+
+            <div id="labFinalActions" style="display:none;">
+              <div class="lab-card">
+                <h3>Финальный промпт</h3>
+                <textarea id="labFinalPrompt" class="input-style" rows="6"></textarea>
+                <div class="field" style="margin-top:12px;">
+                  <label>Имя профиля</label>
+                  <input id="labProfileName" class="input-style" placeholder="Например: Аудит блока Сервисы v2">
+                </div>
+                <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;">
+                  <button class="btn-primary" onclick="labSaveProfile()">
+                    <i data-lucide="save" style="width:18px;height:18px;"></i>
+                    <span>Сохранить как профиль</span>
+                  </button>
+                  <button class="btn-secondary" onclick="labRunIteration()">
+                    <i data-lucide="refresh-cw" style="width:18px;height:18px;"></i>
+                    <span>Ещё итерация</span>
+                  </button>
+                  <button class="btn-secondary" onclick="labReset()">
+                    <span>← Начать заново</span>
+                  </button>
+                </div>
+                <div class="notice" id="labSaveNotice" style="margin-top:10px;"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ═══ Hypotheses Panel ═══ -->
+      <section id="panel-hypo" class="panel">
+        <div class="analysis-layout">
+          <div class="analysis-sidebar">
+            <div class="control-card">
+              <h2 class="section-title">Поиск аудиторских гипотез</h2>
+              <p style="font-size:0.85rem;color:var(--tg-muted);margin-bottom:14px;">
+                Инструмент разбирает каждый документ, затем нейросеть сама группирует
+                их по смыслу (связанные контрагенты, общая схема) и формулирует проверяемые
+                гипотезы. По умолчанию ищет всё; настройки ниже позволяют сузить и направить.
+              </p>
+
+              <div id="hypoDropZone" class="drop-zone" onclick="document.getElementById('hypoExcelInput').click()"
+                   ondragover="event.preventDefault();this.classList.add('dragover')"
+                   ondragleave="this.classList.remove('dragover')"
+                   ondrop="event.preventDefault();this.classList.remove('dragover');hypoHandleUpload(event.dataTransfer.files)">
+                <input id="hypoExcelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="hypoHandleUpload(this.files)">
+                <i data-lucide="file-spreadsheet" style="width:30px;height:30px;color:#2aabee;"></i>
+                <p>Загрузите Excel для поиска гипотез</p>
+              </div>
+
+              <div class="field" style="margin-top:14px;">
+                <label for="hypoSheetSelect">Лист</label>
+                <select id="hypoSheetSelect" class="input-style" disabled onchange="hypoOnSheetChange()">
+                  <option>Загрузите файл</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="hypoColumnSelect">Столбец с текстом документа</label>
+                <select id="hypoColumnSelect" class="input-style" disabled>
+                  <option>Сначала выберите лист</option>
+                </select>
+              </div>
+
+              <details style="margin-top:8px;">
+                <summary style="cursor:pointer;font-weight:600;font-size:0.9rem;color:var(--tg-primary);">Настройки поиска (необязательно)</summary>
+                <div style="margin-top:12px;">
+                  <div class="field">
+                    <label for="hypoTheme">Тематика поиска</label>
+                    <input id="hypoTheme" class="input-style" type="text" placeholder="пусто = искать всё; напр. налоги, закупки, мошенничество">
+                  </div>
+                  <div class="field">
+                    <label for="hypoTags">Риск-теги (через запятую)</label>
+                    <textarea id="hypoTags" class="input-style" style="min-height:64px;resize:vertical;"></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="hypoInstructions">Дополнительные инструкции аналитику</label>
+                    <textarea id="hypoInstructions" class="input-style" style="min-height:90px;resize:vertical;"></textarea>
+                  </div>
+                  <div class="field" style="margin-bottom:0;">
+                    <label for="hypoExample">Пример гипотезы (формат)</label>
+                    <textarea id="hypoExample" class="input-style" style="min-height:120px;resize:vertical;font-family:monospace;font-size:0.8rem;"></textarea>
+                  </div>
+                  <button class="btn-secondary" style="margin-top:8px;" onclick="hypoResetSettings()">Сбросить к значениям по умолчанию</button>
+                </div>
+              </details>
+
+              <div class="button-stack" style="margin-top:14px;">
+                <button id="hypoRunBtn" class="btn-primary" disabled onclick="hypoStart()">
+                  <i data-lucide="search" style="width:18px;height:18px;"></i>
+                  <span>Найти гипотезы</span>
+                </button>
+                <button id="hypoCancelBtn" class="btn-secondary" style="display:none;" onclick="hypoCancel()">
+                  <span>Отменить</span>
+                </button>
+              </div>
+              <div class="notice" id="hypoNotice"></div>
+            </div>
+          </div>
+
+          <div class="chat-shell">
+            <div class="chat-header">
+              <div class="chat-title">
+                <div>
+                  <h2>Гипотезы</h2>
+                  <p>Кросс-документные гипотезы (паттерн виден на группе) показаны первыми.</p>
+                </div>
+              </div>
+              <div class="progress-wrap">
+                <div class="progress-head">
+                  <strong id="hypoStage">Ожидание...</strong>
+                  <span id="hypoCounter">0 / 0</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div id="hypoBarFill" class="progress-bar-fill"></div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-body">
+              <div class="empty-state" id="hypoEmpty">
+                <div>
+                  <i data-lucide="lightbulb" style="width:38px;height:38px;color:#2aabee;"></i>
+                  <p>Нажмите «Найти гипотезы» — инструмент сам разберёт документы и найдёт паттерны.</p>
+                </div>
+              </div>
+              <div id="hypoGroups" style="padding:0 18px;"></div>
+              <div class="message-list" id="hypoList" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ Anonymization Panel ═══ -->
+      <section id="panel-anon" class="panel">
+        <div class="analysis-layout">
+          <div class="analysis-sidebar">
+            <div class="control-card">
+              <h2 class="section-title">Обезличивание текста</h2>
+              <p style="font-size:0.85rem;color:var(--tg-muted);margin-bottom:14px;">
+                Удаляет персональные данные из текста (пересказа) и заменяет плейсхолдерами:
+                ФИО → <code>&lt;name&gt;</code>, телефон → <code>&lt;phone&gt;</code>,
+                e-mail → <code>&lt;email&gt;</code>, паспорт → <code>&lt;passport&gt;</code>,
+                СНИЛС → <code>&lt;snils&gt;</code>, ИНН → <code>&lt;inn&gt;</code>,
+                карта → <code>&lt;card&gt;</code>.
+              </p>
+
+              <div class="toggle-row" style="margin-bottom:14px;">
+                <label class="switch">
+                  <input type="checkbox" id="anonUseLlm" checked>
+                  <span class="slider"></span>
+                </label>
+                <label for="anonUseLlm" class="toggle-label" onclick="document.getElementById('anonUseLlm').click()">
+                  Искать ФИО нейросетью (любые падежи)
+                </label>
+              </div>
+
+              <div class="button-stack">
+                <button id="anonRunBtn" class="btn-primary" onclick="anonRun()">
+                  <i data-lucide="shield" style="width:18px;height:18px;"></i>
+                  <span>Обезличить</span>
+                </button>
+                <button class="btn-secondary" onclick="anonCopy()">
+                  <i data-lucide="copy" style="width:18px;height:18px;"></i>
+                  <span>Скопировать результат</span>
+                </button>
+              </div>
+              <div class="notice" id="anonNotice"></div>
+              <div class="meta-box" id="anonStats" style="margin-top:12px;display:none;"></div>
+            </div>
+
+            <div class="control-card" style="margin-top:18px;">
+              <h2 class="section-title">Обезличить столбец Excel</h2>
+              <p style="font-size:0.85rem;color:var(--tg-muted);margin-bottom:12px;">
+                Загрузите Excel, выберите лист и столбец (напр. «Пересказ»). Каждая ячейка
+                обезличивается, исходный столбец заменяется на месте.
+              </p>
+
+              <div id="anonDropZone" class="drop-zone" onclick="document.getElementById('anonExcelInput').click()"
+                   ondragover="event.preventDefault();this.classList.add('dragover')"
+                   ondragleave="this.classList.remove('dragover')"
+                   ondrop="event.preventDefault();this.classList.remove('dragover');anonHandleUpload(event.dataTransfer.files)">
+                <input id="anonExcelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="anonHandleUpload(this.files)">
+                <i data-lucide="file-spreadsheet" style="width:28px;height:28px;color:#2aabee;"></i>
+                <p>Загрузите Excel для обезличивания</p>
+              </div>
+
+              <div class="field" style="margin-top:12px;">
+                <label for="anonSheetSelect">Лист</label>
+                <select id="anonSheetSelect" class="input-style" disabled onchange="anonOnSheetChange()">
+                  <option>Загрузите файл</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="anonColumnSelect">Столбец для обезличивания</label>
+                <select id="anonColumnSelect" class="input-style" disabled>
+                  <option value="">Сначала выберите лист</option>
+                </select>
+              </div>
+              <div class="button-stack">
+                <button id="anonExcelBtn" class="btn-primary" disabled onclick="anonExcelStart()">
+                  <i data-lucide="shield-check" style="width:18px;height:18px;"></i>
+                  <span>Обезличить столбец</span>
+                </button>
+                <a id="anonExcelDownload" class="btn-secondary" href="#" style="display:none;text-decoration:none;">
+                  <i data-lucide="download" style="width:18px;height:18px;"></i>
+                  <span>Скачать обезличенный Excel</span>
+                </a>
+              </div>
+              <div class="progress-wrap" style="margin-top:12px;">
+                <div class="progress-head">
+                  <strong id="anonExcelStage">Ожидание...</strong>
+                  <span id="anonExcelCounter">0 / 0</span>
+                </div>
+                <div class="progress-bar-bg"><div id="anonExcelBarFill" class="progress-bar-fill"></div></div>
+              </div>
+              <div class="notice" id="anonExcelNotice"></div>
+            </div>
+          </div>
+
+          <div class="chat-shell">
+            <div class="chat-header">
+              <div class="chat-title">
+                <div>
+                  <h2>Текст</h2>
+                  <p>Вставьте текст слева в поле «Исходный», справа появится обезличенный.</p>
+                </div>
+              </div>
+            </div>
+            <div class="chat-body" style="display:grid;grid-template-rows:1fr 1fr;gap:12px;padding:18px;">
+              <div class="field" style="margin:0;display:flex;flex-direction:column;">
+                <label for="anonInput">Исходный текст</label>
+                <textarea id="anonInput" class="input-style" style="flex:1;min-height:140px;resize:vertical;" placeholder="Вставьте текст с персональными данными..."></textarea>
+              </div>
+              <div class="field" style="margin:0;display:flex;flex-direction:column;">
+                <label for="anonOutput">Обезличенный текст</label>
+                <textarea id="anonOutput" class="input-style" style="flex:1;min-height:140px;resize:vertical;background:rgba(42,171,238,0.05);" readonly placeholder="Результат появится здесь..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    let currentFilePath = '';
+    let currentSheet = '';
+    let currentColumn = '';
+    let currentSheetsData = {};
+    let currentJobId = null;
+    let isAnalysisRunning = false;
+    let analyzeMode = 'analyze';
+    let pollTimer = null;
+    let lastRenderedSignature = '';
+
+    let settingsData = {
+      active_prompt_name: '', active_prompt_text: '',
+      active_summary_name: '', active_summary_text: '',
+      active_image_name: '', active_image_text: '',
+      profiles_analysis: [], profiles_summary: [], profiles_image: []
+    };
+
+    function renderProfiles(selectId, profilesArray, activeName) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      select.innerHTML = '';
+      (profilesArray || []).forEach(profile => {
+        const option = document.createElement('option');
+        option.value = profile.name;
+        option.textContent = profile.name;
+        if (profile.name === activeName) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+      const createOption = document.createElement('option');
+      createOption.value = "__create__";
+      createOption.textContent = "[+] Создать новый профиль...";
+      createOption.style.fontWeight = 'bold';
+      select.appendChild(createOption);
+    }
+
+    function onProfileSelect(type) {
+      let selectId, textareaId, profilesArray, currentActiveName;
+      if (type === 'analysis') {
+        selectId = 'promptName'; textareaId = 'promptInput'; profilesArray = settingsData.profiles_analysis || [];
+        currentActiveName = settingsData.active_prompt_name;
+      } else if (type === 'summary') {
+        selectId = 'summaryName'; textareaId = 'summaryPromptInput'; profilesArray = settingsData.profiles_summary || [];
+        currentActiveName = settingsData.active_summary_name;
+      } else if (type === 'image') {
+        selectId = 'imageName'; textareaId = 'imagePromptInput'; profilesArray = settingsData.profiles_image || [];
+        currentActiveName = settingsData.active_image_name;
+      }
+
+      const select = document.getElementById(selectId);
+      const textarea = document.getElementById(textareaId);
+      if (!select || !textarea) return;
+
+      if (select.value === '__create__') {
+        const newName = prompt('Введите название нового профиля:');
+        if (newName && newName.trim()) {
+          const trimmed = newName.trim();
+          if (!profilesArray.find(p => p.name === trimmed)) {
+             profilesArray.push({ name: trimmed, text: '' });
+          }
+          renderProfiles(selectId, profilesArray, trimmed);
+          textarea.value = '';
+          textarea.focus();
+        } else {
+          select.value = currentActiveName || (profilesArray.length > 0 ? profilesArray[0].name : '');
+        }
+        return;
+      }
+
+      const selectedProfile = profilesArray.find(p => p.name === select.value);
+      if (selectedProfile) {
+        textarea.value = selectedProfile.text;
+      }
+    }
+
+    function safeText(value) {
+      if (!value) return '';
+      let text = String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      text = text.replace(/&lt;a href="([^"]+)" target="_blank" style="([^"]+)"&gt;(.*?)&lt;\/a&gt;/g, '<a href="$1" target="_blank" style="$2">$3</a>');
+      return text;
+    }
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        document.cookie.split(';').forEach((cookie) => {
+          const trimmed = cookie.trim();
+          if (trimmed.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+          }
+        });
+      }
+      return cookieValue;
+    }
+
+    function createIconsSafe() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    }
+
+    function showNotice(id, text, tone = 'info') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = `notice show ${tone}`;
+      el.textContent = text;
+    }
+
+    function hideNotice(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = 'notice';
+      el.textContent = '';
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('[data-tab-button]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.tabButton === tabName);
+      });
+      document.querySelectorAll('.panel').forEach((panel) => panel.classList.remove('active'));
+      const panel = document.getElementById(`panel-${tabName}`);
+      if (panel) panel.classList.add('active');
+      if (tabName === 'hypo') syncAiPanels();
+    }
+
+    function setAnalyzeMode(mode) {
+      analyzeMode = mode;
+      const label = document.getElementById('btnAnalyzeLabel');
+      if (label) {
+        label.textContent = mode === 'continue' ? 'Продолжить' : 'Анализировать';
+      }
+      updateAnalyzeButtonState();
+    }
+
+    function updateAnalyzeButtonState() {
+      const btn = document.getElementById('btnAnalyze');
+      if (!btn) return;
+      btn.disabled = isAnalysisRunning || !(currentFilePath && currentSheet && currentColumn);
+    }
+
+    function updateProgress(stage, current, total) {
+      const stageEl = document.getElementById('ratingStage');
+      const counterEl = document.getElementById('ratingCounter');
+      const barEl = document.getElementById('ratingBarFill');
+      if (stageEl) stageEl.textContent = stage || 'Ожидание...';
+      if (counterEl) counterEl.textContent = `${current || 0} / ${total || 0}`;
+      if (barEl) {
+        const percent = total ? Math.max(0, Math.min(100, Math.round((current / total) * 100))) : 0;
+        barEl.style.width = `${percent}%`;
+      }
+    }
+
+    function resetRenderedFeed() {
+      const list = document.getElementById('messageList');
+      const empty = document.getElementById('emptyState');
+      if (list) {
+        list.innerHTML = '';
+        list.style.display = 'none';
+      }
+      if (empty) {
+        empty.style.display = 'grid';
+      }
+      lastRenderedSignature = '';
+    }
+
+    function restoreAnalyzeButton() {
+      const btn = document.getElementById('btnAnalyze');
+      if (!btn) return;
+      btn.innerHTML = '<i data-lucide="play" style="width:18px;height:18px;"></i><span id="btnAnalyzeLabel">Анализировать</span>';
+      createIconsSafe();
+    }
+
+    function resetAnalysisState() {
+      currentJobId = null;
+      isAnalysisRunning = false;
+      clearTimeout(pollTimer);
+      pollTimer = null;
+      resetRenderedFeed();
+      updateProgress('Ожидание...', 0, 0);
+      const link = document.getElementById('ratedDownloadLink');
+      if (link) link.style.display = 'none';
+      hideNotice('uploadNotice');
+      restoreAnalyzeButton();
+      setAnalyzeMode('analyze');
+    }
+
+    function resetUploadSelection() {
+      currentFilePath = '';
+      currentSheet = '';
+      currentColumn = '';
+      currentSheetsData = {};
+      const sheetSelect = document.getElementById('sheetSelect');
+      const columnSelect = document.getElementById('columnSelect');
+      const rowCountInfo = document.getElementById('rowCountInfo');
+      if (sheetSelect) {
+        sheetSelect.disabled = true;
+        sheetSelect.innerHTML = '<option>Загрузите файл</option>';
+      }
+      if (columnSelect) {
+        columnSelect.disabled = true;
+        columnSelect.innerHTML = '<option>Сначала выберите лист</option>';
+      }
+      if (rowCountInfo) {
+        rowCountInfo.textContent = 'Файл еще не загружен.';
+      }
+      updateAnalyzeButtonState();
+    }
+
+    function populateUploadState(filePath, sheets, preview, selectedSheet, selectedColumn) {
+      currentFilePath = filePath || '';
+      currentSheetsData = preview || {};
+
+      const sheetSelect = document.getElementById('sheetSelect');
+      if (!sheetSelect) return;
+
+      if (sheets && sheets.length) {
+        sheetSelect.disabled = false;
+        sheetSelect.innerHTML = '';
+        sheets.forEach((sheet) => {
+          const option = document.createElement('option');
+          option.value = sheet;
+          option.textContent = sheet;
+          sheetSelect.appendChild(option);
+        });
+        if (selectedSheet && sheets.includes(selectedSheet)) {
+          sheetSelect.value = selectedSheet;
+        }
+        onSheetChange();
+      }
+
+      const columnSelect = document.getElementById('columnSelect');
+      if (columnSelect && selectedColumn) {
+        columnSelect.value = selectedColumn;
+        currentColumn = selectedColumn;
+      }
+
+      currentSheet = selectedSheet || (sheetSelect.value || '');
+      updateAnalyzeButtonState();
+    }
+
+    function onSheetChange() {
+      const sheetSelect = document.getElementById('sheetSelect');
+      const columnSelect = document.getElementById('columnSelect');
+      const rowCountInfo = document.getElementById('rowCountInfo');
+      if (!sheetSelect || !columnSelect) return;
+
+      currentSheet = sheetSelect.value;
+      const data = currentSheetsData[currentSheet];
+      if (!data) {
+        columnSelect.disabled = true;
+        updateAnalyzeButtonState();
+        return;
+      }
+
+      columnSelect.disabled = false;
+      columnSelect.innerHTML = '<option value="">Выберите столбец</option>';
+      let foundIndex = -1;
+      data.columns.forEach((column, index) => {
+        const option = document.createElement('option');
+        option.value = column;
+        option.textContent = column;
+        columnSelect.appendChild(option);
+        
+        const cLower = String(column).toLowerCase();
+        if (cLower.includes('пересказ') || cLower.includes('gigachat')) {
+            foundIndex = index;
+        }
+      });
+
+      currentColumn = '';
+      if (foundIndex !== -1) {
+          columnSelect.selectedIndex = foundIndex + 1;
+          currentColumn = columnSelect.value;
+      }
+
+      if (rowCountInfo) {
+        rowCountInfo.textContent = `Всего строк в исходном Excel: ${data.total_rows}`;
+      }
+      updateAnalyzeButtonState();
+    }
+
+    function onColumnChange() {
+      const columnSelect = document.getElementById('columnSelect');
+      currentColumn = columnSelect ? columnSelect.value : '';
+      updateAnalyzeButtonState();
+    }
+
+    async function handleExcelUpload(files) {
+      if (!files || !files.length) return;
+      const file = files[0];
+      if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        showNotice('uploadNotice', 'Можно загрузить только Excel-файл.', 'error');
+        return;
+      }
+
+      showNotice('uploadNotice', 'Загрузка файла...', 'info');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('upload_excel/', {
+          method: 'POST',
+          body: formData,
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        });
+        const payload = await response.json();
+
+        if (!response.ok || payload.status !== 'ok') {
+          showNotice('uploadNotice', payload.error || 'Не удалось загрузить файл.', 'error');
+          return;
+        }
+
+        resetAnalysisState();
+        resetUploadSelection();
+        currentFilePath = payload.file_path;
+        currentSheetsData = payload.preview || {};
+
+        const sheetSelect = document.getElementById('sheetSelect');
+        if (sheetSelect) {
+          sheetSelect.disabled = false;
+          sheetSelect.innerHTML = '';
+          payload.sheets.forEach((sheet) => {
+            const option = document.createElement('option');
+            option.value = sheet;
+            option.textContent = sheet;
+            sheetSelect.appendChild(option);
+          });
+        }
+
+        showNotice('uploadNotice', 'Файл загружен. Выберите лист и столбец.', 'success');
+        onSheetChange();
+        createIconsSafe();
+      } catch (error) {
+        showNotice('uploadNotice', `Ошибка сети: ${error.message}`, 'error');
+      }
+    }
+
+    async function startAnalysis() {
+      if (isAnalysisRunning) return;
+      if (!(currentFilePath && currentSheet && currentColumn)) return;
+
+      await savePrompt(true);
+
+      isAnalysisRunning = true;
+      updateAnalyzeButtonState();
+
+      const button = document.getElementById('btnAnalyze');
+      if (button) {
+        button.innerHTML = '<span class="spinner"></span><span>Запуск...</span>';
+      }
+
+      const thresholdInput = document.getElementById('thresholdInput');
+      const promptInput = document.getElementById('promptInput');
+      const genImage = document.getElementById('generateImageToggle');
+      const addLink = document.getElementById('addLinkToggle');
+
+      const threshold = thresholdInput ? (parseFloat(thresholdInput.value) || 70) : 70;
+
+      try {
+        const response = await fetch('start_analysis/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify({
+            file_path: currentFilePath,
+            sheet: currentSheet,
+            column: currentColumn,
+            threshold: threshold,
+            prompt: promptInput ? promptInput.value : '',
+            generate_image: genImage ? genImage.checked : true,
+            add_link: addLink ? addLink.checked : true,
+          }),
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.job_id) {
+          isAnalysisRunning = false;
+          updateAnalyzeButtonState();
+          if (button) {
+            button.innerHTML = `<i data-lucide="play" style="width:18px;height:18px;"></i><span>${analyzeMode === 'continue' ? 'Продолжить' : 'Анализировать'}</span>`;
+          }
+          createIconsSafe();
+          showNotice('uploadNotice', payload.error || 'Не удалось запустить анализ.', 'error');
+          return;
+        }
+
+        currentJobId = payload.job_id;
+        if (!payload.continue_mode) {
+          resetRenderedFeed();
+          updateProgress('Запуск...', 0, 0);
+          const link = document.getElementById('ratedDownloadLink');
+          if (link) link.style.display = 'none';
+        } else {
+          showNotice('uploadNotice', 'Продолжаю с первой необработанной строки.', 'info');
+        }
+
+        ensurePolling(250);
+      } catch (error) {
+        isAnalysisRunning = false;
+        updateAnalyzeButtonState();
+        if (button) {
+          button.innerHTML = `<i data-lucide="play" style="width:18px;height:18px;"></i><span>${analyzeMode === 'continue' ? 'Продолжить' : 'Анализировать'}</span>`;
+        }
+        createIconsSafe();
+        showNotice('uploadNotice', `Ошибка сети: ${error.message}`, 'error');
+      }
+    }
+
+    function ensurePolling(delay = 1000) {
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(pollAnalysisProgress, delay);
+    }
+
+    async function pollAnalysisProgress() {
+      if (!currentJobId) return;
+
+      try {
+        const response = await fetch(`analysis_progress/?job_id=${encodeURIComponent(currentJobId)}`);
+        const job = await response.json();
+
+        if (!response.ok) {
+          showNotice('uploadNotice', job.error || 'Не удалось получить прогресс.', 'error');
+          return;
+        }
+
+        isAnalysisRunning = job.status === 'running';
+        updateProgress(job.stage, job.current, job.total);
+        renderMessages(job.messages || []);
+
+        const downloadLink = document.getElementById('ratedDownloadLink');
+        if (downloadLink && job.download_url) {
+          downloadLink.href = job.download_url;
+          downloadLink.style.display = 'inline-flex';
+        }
+
+        if (job.resume_available && job.status !== 'done') {
+          setAnalyzeMode('continue');
+        } else {
+          setAnalyzeMode('analyze');
+        }
+
+        if (job.status === 'error' && job.error) {
+          showNotice('uploadNotice', `Процесс остановлен: ${job.error}`, 'error');
+        } else if (job.status === 'done') {
+          showNotice('uploadNotice', 'Анализ завершен.', 'success');
+        }
+
+        const button = document.getElementById('btnAnalyze');
+        if (button) {
+          if (isAnalysisRunning) {
+            const percent = job.total ? Math.max(1, Math.min(100, Math.round((job.current / job.total) * 100))) : 0;
+            button.innerHTML = `<span class="spinner"></span><span>${percent}%</span>`;
+          } else {
+            button.innerHTML = `<i data-lucide="play" style="width:18px;height:18px;"></i><span>${analyzeMode === 'continue' ? 'Продолжить' : 'Анализировать'}</span>`;
+          }
+        }
+
+        updateAnalyzeButtonState();
+        createIconsSafe();
+
+        if (job.should_poll) {
+          ensurePolling(1000);
+        } else {
+          pollTimer = null;
+        }
+      } catch (error) {
+        showNotice('uploadNotice', `Ошибка сети: ${error.message}`, 'error');
+        if (currentJobId) ensurePolling(1500);
+      }
+    }
+
+    function scoreClass(score) {
+      if (score >= 70) return 'high';
+      if (score >= 40) return 'medium';
+      return 'low';
+    }
+
+    function renderMessages(messages) {
+      const signature = JSON.stringify(messages);
+      if (signature === lastRenderedSignature) return;
+      lastRenderedSignature = signature;
+
+      const list = document.getElementById('messageList');
+      const emptyState = document.getElementById('emptyState');
+      if (!list || !emptyState) return;
+
+      if (!messages.length) {
+        list.innerHTML = '';
+        list.style.display = 'none';
+        emptyState.style.display = 'grid';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      list.style.display = 'flex';
+      list.innerHTML = messages.map((message) => {
+        const imageHtml = message.image_url
+          ? `<div class="message-image"><img src="${message.image_url}" alt="Изображение документа" onerror="this.parentElement.classList.add('placeholder');this.parentElement.textContent='Изображение недоступно';"></div>`
+          : `<div class="message-image placeholder">Изображение еще не создано или генерация завершилась ошибкой.</div>`;
+
+        return `
+          <article class="message-row">
+            <div class="message-channel">
+              <i data-lucide="megaphone" style="width:18px;height:18px;"></i>
+            </div>
+            <div class="message-bubble">
+              <div class="message-top">
+                <span class="message-author">Обозреватель</span>
+                <span class="message-score ${scoreClass(message.score || 0)}">Оценка ${message.score || 0}</span>
+              </div>
+              ${imageHtml}
+              <p class="message-text">${safeText(message.summary || '')}</p>
+              <div class="message-actions">
+                <button class="btn-secondary" onclick="runMessageAction(this, 'regenerate_text/', ${message.row_index})" ${message.text_pending ? 'disabled' : ''}>
+                  <div style="position:absolute; left:14px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; top:6px; left:6px; background:var(--tg-surface); border-radius:1.5px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  </div>
+                  <span>${message.text_pending ? 'Текст в очереди' : 'Перегенерировать текст'}</span>
+                </button>
+                <button class="btn-secondary" onclick="runMessageAction(this, 'regenerate_image/', ${message.row_index})" ${message.image_pending ? 'disabled' : ''}>
+                  <div style="position:absolute; left:14px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; top:6px; left:6px; background:var(--tg-surface); border-radius:1.5px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  </div>
+                  <span>${message.image_pending ? 'Изображение в очереди' : 'Перегенерировать изображение'}</span>
+                </button>
+                <button class="btn-danger" onclick="lockMessage(${message.row_index})">
+                  <div style="position:absolute; left:14px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  </div>
+                  <span>Блокировка</span>
+                </button>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      createIconsSafe();
+    }
+
+    async function runMessageAction(button, endpoint, rowIndex) {
+      if (!currentJobId) return;
+      if (button) button.disabled = true;
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify({ job_id: currentJobId, row_index: rowIndex }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          if (button) button.disabled = false;
+          showNotice('uploadNotice', payload.error || 'Не удалось поставить задачу в очередь.', 'error');
+          return;
+        }
+        ensurePolling(200);
+      } catch (error) {
+        if (button) button.disabled = false;
+        showNotice('uploadNotice', `Ошибка сети: ${error.message}`, 'error');
+      }
+    }
+
+    async function lockMessage(rowIndex) {
+      if (!currentJobId) return;
+
+      try {
+        const response = await fetch('lock_message/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify({ job_id: currentJobId, row_index: rowIndex }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          showNotice('uploadNotice', payload.error || 'Не удалось заблокировать сообщение.', 'error');
+          return;
+        }
+        ensurePolling(150);
+      } catch (error) {
+        showNotice('uploadNotice', `Ошибка сети: ${error.message}`, 'error');
+      }
+    }
+
+    async function savePrompt(silent = false) {
+      const promptInput = document.getElementById('promptInput');
+      const summaryPromptInput = document.getElementById('summaryPromptInput');
+      const imagePromptInput = document.getElementById('imagePromptInput');
+
+      const promptName = document.getElementById('promptName');
+      const summaryName = document.getElementById('summaryName');
+      const imageName = document.getElementById('imageName');
+
+      settingsData.active_prompt_name = promptName ? promptName.value.trim() : '';
+      settingsData.active_prompt_text = promptInput ? promptInput.value : '';
+      settingsData.active_summary_name = summaryName ? summaryName.value.trim() : '';
+      settingsData.active_summary_text = summaryPromptInput ? summaryPromptInput.value : '';
+      settingsData.active_image_name = imageName ? imageName.value.trim() : '';
+      settingsData.active_image_text = imagePromptInput ? imagePromptInput.value : '';
+
+      const textModelSelect = document.getElementById('textModelSelect');
+      const imageModelSelect = document.getElementById('imageModelSelect');
+      if (textModelSelect && textModelSelect.value) settingsData.active_text_model = textModelSelect.value;
+      if (imageModelSelect && imageModelSelect.value) settingsData.active_image_model = imageModelSelect.value;
+
+      function updateProfiles(type, name, text) {
+        if (!name) return;
+        const arr = settingsData[`profiles_${type}`] || [];
+        const existing = arr.find(p => p.name === name);
+        if (existing) {
+          existing.text = text;
+        } else {
+          arr.push({ name, text });
+        }
+        settingsData[`profiles_${type}`] = arr;
+      }
+
+      updateProfiles('analysis', settingsData.active_prompt_name, settingsData.active_prompt_text);
+      updateProfiles('summary', settingsData.active_summary_name, settingsData.active_summary_text);
+      updateProfiles('image', settingsData.active_image_name, settingsData.active_image_text);
+
+      try {
+        const response = await fetch('save_settings/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify(settingsData),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          if (!silent) showNotice('settingsNotice', payload.error || 'Не удалось сохранить промпт.', 'error');
+          return false;
+        }
+        
+        renderProfiles('promptName', settingsData.profiles_analysis, settingsData.active_prompt_name);
+        renderProfiles('summaryName', settingsData.profiles_summary, settingsData.active_summary_name);
+        renderProfiles('imageName', settingsData.profiles_image, settingsData.active_image_name);
+
+        if (!silent) showNotice('settingsNotice', 'Промпты сохранены.', 'success');
+        return true;
+      } catch (error) {
+        if (!silent) showNotice('settingsNotice', `Ошибка сети: ${error.message}`, 'error');
+        return false;
+      }
+    }
+
+    async function restoreAppState() {
+      try {
+        const response = await fetch('app_state/');
+        const payload = await response.json();
+
+        // Настройки применяем всегда (в т.ч. при status==='empty'),
+        // чтобы выбор моделей и промптов подтянулся на свежей странице.
+        const promptInput = document.getElementById('promptInput');
+        const summaryPromptInput = document.getElementById('summaryPromptInput');
+        const imagePromptInput = document.getElementById('imagePromptInput');
+
+        if (payload.settings) {
+          settingsData = payload.settings;
+
+          renderProfiles('promptName', settingsData.profiles_analysis, settingsData.active_prompt_name);
+          renderProfiles('summaryName', settingsData.profiles_summary, settingsData.active_summary_name);
+          renderProfiles('imageName', settingsData.profiles_image, settingsData.active_image_name);
+
+          if (promptInput) promptInput.value = settingsData.active_prompt_text || '';
+          if (summaryPromptInput) summaryPromptInput.value = settingsData.active_summary_text || '';
+          if (imagePromptInput) imagePromptInput.value = settingsData.active_image_text || '';
+        }
+
+        if (!response.ok || payload.status !== 'ok') {
+          createIconsSafe();
+          return;
+        }
+
+        resetAnalysisState();
+        resetUploadSelection();
+
+        populateUploadState(
+          payload.file_path,
+          payload.sheets || [],
+          payload.preview || {},
+          payload.job ? payload.job.sheet : '',
+          payload.job ? payload.job.column : ''
+        );
+
+        if (payload.job) {
+          currentJobId = payload.job_id || null;
+
+          const thresholdInput = document.getElementById('thresholdInput');
+          if (thresholdInput && payload.job.threshold) {
+            thresholdInput.value = payload.job.threshold;
+          }
+
+          updateProgress(payload.job.stage, payload.job.current, payload.job.total);
+          renderMessages(payload.job.messages || []);
+
+          const downloadLink = document.getElementById('ratedDownloadLink');
+          if (downloadLink && payload.job.download_url) {
+            downloadLink.href = payload.job.download_url;
+            downloadLink.style.display = 'inline-flex';
+          }
+
+          if (payload.job.resume_available && payload.job.status !== 'done') {
+            setAnalyzeMode('continue');
+          } else {
+            setAnalyzeMode('analyze');
+          }
+
+          if (payload.job.status === 'interrupted') {
+            showNotice('uploadNotice', 'Сервер был перезапущен. Можно продолжить обработку.', 'info');
+          } else if (payload.job.status === 'done') {
+            showNotice('uploadNotice', 'Восстановлен последний завершенный результат.', 'success');
+          } else if (payload.job.status === 'running') {
+            isAnalysisRunning = true;
+          }
+
+          if (payload.job.should_poll) {
+            isAnalysisRunning = payload.job.status === 'running';
+            ensurePolling(300);
+          } else {
+            updateAnalyzeButtonState();
+          }
+        }
+
+        createIconsSafe();
+      } catch (_error) {
+        createIconsSafe();
+      }
+    }
+
+    (function initDropZone() {
+      const dropZone = document.getElementById('dropZone');
+      if (!dropZone) return;
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+      });
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'));
+      });
+      ['dragleave', 'drop'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'));
+      });
+      dropZone.addEventListener('drop', (event) => handleExcelUpload(event.dataTransfer.files));
+
+      // Lab Drop Zone
+      const labDropZone = document.getElementById('labDropZone');
+      if (!labDropZone) return;
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
+        labDropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+      });
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        labDropZone.addEventListener(eventName, () => labDropZone.classList.add('dragover'));
+      });
+      ['dragleave', 'drop'].forEach((eventName) => {
+        labDropZone.addEventListener(eventName, () => labDropZone.classList.remove('dragover'));
+      });
+      labDropZone.addEventListener('drop', (event) => labHandleExcel(event.dataTransfer.files));
+    })();
+
+    /* ════════════════════════════════════════════════════════════
+       Prompt Laboratory Logic
+       ════════════════════════════════════════════════════════════ */
+
+    let labTopics = [];
+    let labJobId = null;
+    let labPollTimer = null;
+    let labCurrentStep = 1;
+    let labSource = 'manual';
+    let labExcelData = []; // [{sheet, columns, data:[...]}]
+    let labSelectedSheet = '';
+
+    function labSetSource(src) {
+      labSource = src;
+      document.querySelectorAll('.lab-source-toggle button').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('labSourceManual').style.display = 'block';
+      document.getElementById('labSourceExcel').style.display = src === 'excel' ? 'block' : 'none';
+    }
+
+    function labAddTopic() {
+      const input = document.getElementById('labTopicInput');
+      const val = input.value.trim();
+      if (!val) return;
+      if (!labTopics.includes(val)) {
+        labTopics.push(val);
+        labRenderTopics();
+      }
+      input.value = '';
+    }
+
+    function labRemoveTopic(topic) {
+      labTopics = labTopics.filter(t => t !== topic);
+      labRenderTopics();
+    }
+
+    function labRenderTopics() {
+      const container = document.getElementById('labTopicsList');
+      container.innerHTML = labTopics.map(t => `
+        <span class="lab-tag">
+          ${t}
+          <button onclick="labRemoveTopic('${t}')">&times;</button>
+        </span>
+      `).join('');
+    }
+
+    // Manual Examples
+    let manualExamplesCount = 0;
+    function labAddExample() {
+      manualExamplesCount++;
+      const id = `labEx_${manualExamplesCount}`;
+      const html = `
+        <div class="lab-example-item" id="${id}">
+          <textarea class="input-style" placeholder="Вставьте текст документа..."></textarea>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="lab-label-btn positive" onclick="labToggleLabel('${id}', 'positive')">✅ Важный</button>
+            <button class="lab-label-btn negative muted" onclick="labToggleLabel('${id}', 'negative')">❌ Неважный</button>
+            <button class="btn-secondary" style="padding:6px;margin-top:auto;" onclick="document.getElementById('${id}').remove()">
+              <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Удалить
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('labExamplesContainer').insertAdjacentHTML('beforeend', html);
+      createIconsSafe();
+    }
+
+    function labToggleLabel(id, label) {
+      const item = document.getElementById(id);
+      const pos = item.querySelector('.positive');
+      const neg = item.querySelector('.negative');
+      if (label === 'positive') {
+        pos.classList.remove('muted');
+        neg.classList.add('muted');
+      } else {
+        neg.classList.remove('muted');
+        pos.classList.add('muted');
+      }
+      item.dataset.label = label;
+    }
+
+    // Initial examples
+    setTimeout(() => { labAddExample(); labAddExample(); }, 100);
+
+    // Excel handling
+    async function labHandleExcel(files) {
+      if (!files.length) return;
+      
+      const formData = new FormData();
+      formData.append('file', files[0]);
+      
+      showNotice('labNotice', 'Загрузка файла...', 'info');
+      try {
+        const response = await fetch('lab/upload_excel/', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        labExcelData = data.excel_data || [];
+        if (labExcelData.length === 0) throw new Error('Excel пуст');
+        
+        const sheetSelect = document.getElementById('labSheetSelect');
+        sheetSelect.innerHTML = labExcelData.map(d => `<option value="${d.sheet}">${d.sheet}</option>`).join('');
+        sheetSelect.disabled = false;
+        
+        hideNotice('labNotice');
+        labOnSheetChange();
+      } catch (err) {
+        showNotice('labNotice', 'Ошибка чтения Excel: ' + err.message, 'error');
+      }
+    }
+
+    function labOnSheetChange() {
+      const sheetName = document.getElementById('labSheetSelect').value;
+      labSelectedSheet = sheetName;
+      const sheetData = labExcelData.find(d => d.sheet === sheetName);
+      const colSelect = document.getElementById('labColumnSelect');
+      if (sheetData && sheetData.columns.length > 0) {
+        colSelect.innerHTML = sheetData.columns.map((c, i) => `<option value="${i}">${c || `Column ${i+1}`}</option>`).join('');
+        colSelect.disabled = false;
+        labRenderExcelRows();
+      }
+    }
+
+    function labOnColumnChange() {
+      labRenderExcelRows();
+    }
+
+    function labRenderExcelRows() {
+      const sheetData = labExcelData.find(d => d.sheet === labSelectedSheet);
+      const colIdx = parseInt(document.getElementById('labColumnSelect').value, 10);
+      if (!sheetData || isNaN(colIdx)) return;
+
+      // Show top 40 rows for labeling
+      const rows = sheetData.data.slice(0, 40);
+      const html = rows.map((row, i) => {
+        const text = row[colIdx] || '';
+        if (!text.trim()) return '';
+        const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
+        const id = `labExl_${i}`;
+        return `
+          <div class="lab-example-item" id="${id}" data-text="${text.replace(/"/g, '&quot;')}" data-label="negative">
+            <div style="flex:1;font-size:0.85rem;">${preview}</div>
+            <div style="display:flex;gap:4px;">
+              <button class="lab-label-btn positive muted" onclick="labToggleExcelLabel('${id}', 'positive')">✅ Важный</button>
+              <button class="lab-label-btn negative" onclick="labToggleExcelLabel('${id}', 'negative')">❌ Неважный</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('labExcelRows').innerHTML = `
+        <p style="font-size:0.85rem;color:var(--tg-muted);margin-bottom:8px;">Выберите несколько важных и неважных документов:</p>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid var(--tg-border);border-radius:12px;padding:10px;">
+          ${html}
+        </div>
+      `;
+    }
+
+    function labToggleExcelLabel(id, label) {
+      const item = document.getElementById(id);
+      const pos = item.querySelector('.positive');
+      const neg = item.querySelector('.negative');
+      if (item.dataset.label === label) {
+        // Toggle off
+        item.dataset.label = 'neutral';
+        pos.classList.add('muted');
+        neg.classList.add('muted');
+      } else {
+        item.dataset.label = label;
+        if (label === 'positive') { pos.classList.remove('muted'); neg.classList.add('muted'); }
+        else { neg.classList.remove('muted'); pos.classList.add('muted'); }
+      }
+    }
+
+    // Wizard Navigation
+    function labGoToStep(step) {
+      document.querySelectorAll('.lab-step').forEach(s => s.classList.remove('active'));
+      document.getElementById(`labStep${step}`).classList.add('active');
+      labCurrentStep = step;
+      createIconsSafe();
+    }
+
+    async function labStartAnalysis() {
+      // Collect examples
+      const examples = [];
+      document.querySelectorAll('#labExamplesContainer .lab-example-item').forEach(item => {
+        const text = item.querySelector('textarea').value.trim();
+        const label = item.dataset.label || 'positive';
+        if (text) examples.push({text, label});
+      });
+      
+      if (labSource === 'excel') {
+        document.querySelectorAll('#labExcelRows .lab-example-item').forEach(item => {
+          const text = item.dataset.text;
+          const label = item.dataset.label;
+          if (label === 'positive' || label === 'negative') examples.push({text, label});
+        });
+      }
+
+      if (examples.length < 2) return showNotice('labNotice', 'Нужно минимум 2 примера', 'error');
+      const hasPos = examples.some(e => e.label === 'positive');
+      if (!hasPos) return showNotice('labNotice', 'Нужен хотя бы 1 позитивный пример', 'error');
+      const hasNeg = examples.some(e => e.label === 'negative');
+      if (!hasNeg) return showNotice('labNotice', 'Нужен хотя бы 1 негативный пример, иначе лаборатория не поймёт границу важности', 'error');
+
+      const comment = document.getElementById('labComment').value.trim();
+      if (comment.length < 10) return showNotice('labNotice', 'Заполните "Что должен делать промпт" (мин. 10 симв.)', 'error');
+
+      const payload = {
+        examples,
+        user_comment: comment,
+        target_audience: document.getElementById('labAudience').value.trim(),
+        success_threshold: parseInt(document.getElementById('labSuccessThreshold').value, 10) || 70,
+        scale: document.getElementById('labScale').value,
+        topics: labTopics,
+        ask_questions: document.getElementById('labAskQuestions').checked
+      };
+
+      try {
+        const response = await fetch('lab/start/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        labJobId = data.job_id;
+        showNotice('labNotice', '');
+        labGoToStep(2);
+        labEnsurePolling();
+      } catch (err) {
+        showNotice('labNotice', err.message, 'error');
+      }
+    }
+
+    function labEnsurePolling() {
+      if (labPollTimer) clearTimeout(labPollTimer);
+      labPollTimer = setTimeout(labPollProgress, 1500);
+    }
+
+    async function labCancel() {
+      if (!labJobId) return;
+      try {
+        await fetch('lab/cancel/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({job_id: labJobId})
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function labPollProgress() {
+      if (!labJobId) return;
+      try {
+        const response = await fetch(`lab/progress/?job_id=${labJobId}`);
+        const job = await response.json();
+        if (job.error) throw new Error(job.error);
+
+        // Render progress
+        if (job.step === 2) {
+          document.getElementById('labAnalysisStage').textContent = job.progress.stage || 'Анализ...';
+          document.getElementById('labAnalysisCounter').textContent = `${job.progress.current} / ${job.progress.total}`;
+          const pct = job.progress.total ? Math.round((job.progress.current / job.progress.total)*100) : 0;
+          document.getElementById('labAnalysisBar').style.width = `${pct}%`;
+          
+          if (job.analyses && job.analyses.length > 0) {
+            document.getElementById('labAnalysisResults').innerHTML = job.analyses.map((a, i) => {
+              const isPos = a.label === 'positive';
+              return `
+                <div class="lab-analysis-card ${isPos ? 'positive' : 'negative'}">
+                  <h4>${isPos ? '✅ Важный' : '❌ Неважный'} документ ${i+1}</h4>
+                  <p><strong>Тема:</strong> ${a.analysis.main_topic || '?'}</p>
+                  <p><strong>Почему:</strong> ${a.analysis.why_important_or_not || '?'}</p>
+                </div>
+              `;
+            }).join('');
+          }
+        } else if (job.step === 4) {
+          labGoToStep(4);
+          document.getElementById('labGenStage').textContent = job.progress.stage || 'Генерация...';
+          const pct = job.progress.total ? Math.round((job.progress.current / job.progress.total)*100) : 0;
+          document.getElementById('labGenBar').style.width = `${pct}%`;
+          
+          if (job.iterations && job.iterations.length > 0) {
+            labRenderIterations(job.iterations);
+          }
+        }
+
+        if (job.status === 'questions_ready') {
+          labRenderQuestions(job.questions);
+          labGoToStep(3);
+        } else if (job.status === 'done') {
+          labRenderIterations(job.iterations);
+          document.getElementById('labFinalActions').style.display = 'block';
+          if (job.iterations.length > 0) {
+            document.getElementById('labFinalPrompt').value = job.iterations[job.iterations.length-1].prompt_text;
+          }
+        } else if (job.status === 'error') {
+          alert(`Ошибка в лаборатории: ${job.error}`);
+        } else {
+          labEnsurePolling();
+        }
+      } catch (err) {
+        console.error(err);
+        labEnsurePolling();
+      }
+    }
+
+    function labRenderQuestions(qData) {
+      if (!qData || !qData.questions) return;
+      const html = qData.questions.map((q, i) => `
+        <div class="lab-question-card">
+          <h4>${i+1}. ${q.text}</h4>
+          <div class="lab-radio-group">
+            ${q.options.map((opt, j) => `
+              <label>
+                <input type="radio" name="${q.id}" value="${opt}" ${j===0 ? 'checked' : ''}>
+                ${opt}
+              </label>
+            `).join('')}
+          </div>
+          <div class="why-hint">💡 Зачем: ${q.why}</div>
+        </div>
+      `).join('');
+      document.getElementById('labQuestionsContainer').innerHTML = html;
+    }
+
+    async function labSubmitAnswers() {
+      const answers = {};
+      document.querySelectorAll('#labQuestionsContainer .lab-question-card').forEach(card => {
+        const checked = card.querySelector('input[type="radio"]:checked');
+        if (checked) {
+          answers[checked.name] = checked.value;
+        }
+      });
+
+      try {
+        await fetch('lab/answer_questions/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({job_id: labJobId, answers})
+        });
+        labGoToStep(4);
+        labEnsurePolling();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function labRenderIterations(iterations) {
+      const thInput = document.getElementById('labSuccessThreshold');
+      const th = parseFloat(thInput.value) || 70;
+      
+      const html = iterations.map((it, i) => {
+        const ev = it.evaluation || {};
+        const score = ev.total || 0;
+        const cls = score >= 85 ? 'high' : (score >= 60 ? 'medium' : 'low');
+        
+        const testRows = it.test_results.map(r => {
+          let numScore = parseFloat(String(r.score).replace(/[^0-9.-]/g, ''));
+          let isHigh = false;
+          let exp = '';
+          if (!isNaN(numScore)) {
+             isHigh = numScore >= th;
+             exp = r.label === 'positive' ? '≥ ' + th : '< ' + th;
+          } else {
+             exp = 'Неизвестно';
+          }
+          
+          const ok = (r.label === 'positive' && isHigh) || (r.label === 'negative' && !isHigh);
+          const icon = ok ? '✅' : '⚠️';
+          
+          return `
+            <div class="lab-test-row">
+              <span class="lab-test-icon">${icon}</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85rem;" title="${r.text_preview.replace(/"/g, '&quot;')}">
+                <strong>Обоснование:</strong> ${r.reasoning}
+              </span>
+              <span style="font-weight:600;min-width:60px;text-align:right;">${r.score} (ожид. ${exp})</span>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="lab-iteration-card">
+            <div class="lab-iteration-header">
+              <h4>Итерация ${i+1}</h4>
+              <span class="lab-score-badge ${cls}">Score: ${score}/100</span>
+            </div>
+            <div class="lab-iteration-body">
+              <p style="font-size:0.85rem;color:var(--tg-muted);margin:0 0 8px;font-weight:600;">📝 Сгенерированный промпт (предпросмотр):</p>
+              <div class="lab-prompt-preview">${it.prompt_text}</div>
+              
+              <p style="font-size:0.85rem;color:var(--tg-muted);margin:16px 0 8px;font-weight:600;">📊 Тестовый прогон:</p>
+              <div style="background:rgba(15,23,42,0.02);border:1px solid var(--tg-border);border-radius:12px;padding:8px 12px;">
+                ${testRows}
+              </div>
+
+              <div class="lab-scores-grid">
+                <div class="lab-score-item">
+                  <div class="label">Разделение</div>
+                  <div class="value">${ev.separation_quality || 0}/25</div>
+                </div>
+                <div class="lab-score-item">
+                  <div class="label">Обоснования</div>
+                  <div class="value">${ev.reasoning_quality || 0}/25</div>
+                </div>
+                <div class="lab-score-item">
+                  <div class="label">Критерии</div>
+                  <div class="value">${ev.criteria_coverage || 0}/25</div>
+                </div>
+                <div class="lab-score-item">
+                  <div class="label">Стабильность</div>
+                  <div class="value">${ev.consistency || 0}/25</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('labIterationsContainer').innerHTML = html;
+    }
+
+    async function labRunIteration() {
+      document.getElementById('labFinalActions').style.display = 'none';
+      try {
+        await fetch('lab/iterate/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({job_id: labJobId})
+        });
+        labEnsurePolling();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function labSaveProfile() {
+      const name = document.getElementById('labProfileName').value.trim();
+      const text = document.getElementById('labFinalPrompt').value.trim();
+      if (!name || !text) return showNotice('labSaveNotice', 'Имя и текст промпта обязательны', 'error');
+
+      try {
+        const response = await fetch('lab/save_profile/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({profile_name: name, prompt_text: text})
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        showNotice('labSaveNotice', 'Профиль успешно сохранен. Он выбран как активный.', 'success');
+      } catch (err) {
+        showNotice('labSaveNotice', err.message, 'error');
+      }
+    }
+
+    function labReset() {
+      labJobId = null;
+      if (labPollTimer) clearTimeout(labPollTimer);
+      document.getElementById('labAnalysisResults').innerHTML = '';
+      document.getElementById('labIterationsContainer').innerHTML = '';
+      document.getElementById('labFinalActions').style.display = 'none';
+      labGoToStep(1);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // AI-вкладки: Гипотезы (Б) и Проверка отбора (А)
+    // ═══════════════════════════════════════════════════════════
+    let hypoJobId = null, hypoTimer = null;
+    let availableModels = [];
+
+    function fillModelSelect(selectId, models, active) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      select.innerHTML = '';
+      const list = models.slice();
+      // гарантируем, что текущее сохранённое значение есть в списке
+      if (active && !list.includes(active)) list.unshift(active);
+      list.forEach((id) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = id;
+        if (id === active) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadModels() {
+      try {
+        const resp = await fetch('list_models/');
+        const data = await resp.json();
+        availableModels = data.models || [];
+        if (data.status !== 'ok' && availableModels.length === 0) {
+          showNotice('modelsNotice', 'Не удалось получить список моделей: ' + (data.error || ''), 'error');
+        }
+      } catch (e) {
+        availableModels = [];
+      }
+      fillModelSelect('textModelSelect', availableModels, settingsData.active_text_model || 'glm-5.1');
+      fillModelSelect('imageModelSelect', availableModels, settingsData.active_image_model || 'GigaChat-3-Ultra');
+    }
+
+    function syncAiPanels() {
+      const ready = !!(currentFilePath && currentSheet);
+      const info = ready
+        ? `Файл готов. Лист: ${currentSheet}.`
+        : 'Файл не загружен — откройте вкладку «Анализ» и загрузите Excel.';
+      const hInfo = document.getElementById('hypoFileInfo');
+      if (hInfo) hInfo.textContent = info;
+    }
+
+    function setProgressUI(stagePrefix, stage, current, total) {
+      const stageEl = document.getElementById(stagePrefix + 'Stage');
+      const counterEl = document.getElementById(stagePrefix + 'Counter');
+      const barEl = document.getElementById(stagePrefix + 'BarFill');
+      if (stageEl) stageEl.textContent = stage || 'Ожидание...';
+      if (counterEl) counterEl.textContent = `${current || 0} / ${total || 0}`;
+      if (barEl) barEl.style.width = total ? `${Math.round((current / total) * 100)}%` : '0%';
+    }
+
+    // ── Гипотезы ──────────────────────────────────────────────
+    let hypoFilePath = '', hypoSheet = '', hypoColumnsBySheet = {};
+    let hypoDefaults = { tags: '', instructions: '', example: '' };
+
+    async function loadHypoDefaults() {
+      try {
+        const resp = await fetch('hypo/defaults/');
+        hypoDefaults = await resp.json();
+        hypoResetSettings();
+      } catch (e) { /* оставим поля пустыми → бэкенд подставит дефолты */ }
+    }
+
+    function hypoResetSettings() {
+      const tags = document.getElementById('hypoTags');
+      const instr = document.getElementById('hypoInstructions');
+      const ex = document.getElementById('hypoExample');
+      if (tags) tags.value = hypoDefaults.tags || '';
+      if (instr) instr.value = hypoDefaults.instructions || '';
+      if (ex) ex.value = hypoDefaults.example || '';
+    }
+
+    function hypoUpdateRunState() {
+      const btn = document.getElementById('hypoRunBtn');
+      const col = document.getElementById('hypoColumnSelect');
+      if (btn) btn.disabled = !(hypoFilePath && hypoSheet && col && col.value);
+    }
+
+    async function hypoHandleUpload(files) {
+      if (!files || !files.length) return;
+      hideNotice('hypoNotice');
+      const formData = new FormData();
+      formData.append('file', files[0]);
+      try {
+        const resp = await fetch('hypo/upload/', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (!resp.ok || data.status !== 'ok') throw new Error(data.error || 'Ошибка загрузки');
+        hypoFilePath = data.file_path;
+        hypoColumnsBySheet = data.columns || {};
+        const sheetSel = document.getElementById('hypoSheetSelect');
+        sheetSel.disabled = false;
+        sheetSel.innerHTML = '';
+        (data.sheets || []).forEach((s) => {
+          const o = document.createElement('option'); o.value = s; o.textContent = s; sheetSel.appendChild(o);
+        });
+        hypoSheet = sheetSel.value;
+        hypoOnSheetChange();
+        showNotice('hypoNotice', 'Файл загружен. Выберите столбец с текстом документа.', 'success');
+      } catch (e) {
+        showNotice('hypoNotice', e.message, 'error');
+      }
+    }
+
+    function hypoOnSheetChange() {
+      const sheetSel = document.getElementById('hypoSheetSelect');
+      const colSel = document.getElementById('hypoColumnSelect');
+      hypoSheet = sheetSel ? sheetSel.value : '';
+      const cols = hypoColumnsBySheet[hypoSheet] || [];
+      colSel.disabled = false;
+      colSel.innerHTML = '<option value="">Выберите столбец</option>';
+      cols.forEach((c) => {
+        const o = document.createElement('option'); o.value = c; o.textContent = c; colSel.appendChild(o);
+      });
+      // авто-выбор подходящего столбца, если есть
+      const guess = cols.find((c) => /текст|содержан|пересказ/i.test(c));
+      if (guess) colSel.value = guess;
+      colSel.onchange = hypoUpdateRunState;
+      hypoUpdateRunState();
+    }
+
+    async function hypoStart() {
+      const column = document.getElementById('hypoColumnSelect').value;
+      if (!(hypoFilePath && hypoSheet && column)) {
+        showNotice('hypoNotice', 'Загрузите файл и выберите лист и столбец.', 'error');
+        return;
+      }
+      hideNotice('hypoNotice');
+      document.getElementById('hypoGroups').innerHTML = '';
+      const hl = document.getElementById('hypoList'); hl.innerHTML = ''; hl.style.display = 'none';
+      document.getElementById('hypoRunBtn').disabled = true;
+      document.getElementById('hypoCancelBtn').style.display = '';
+      const settings = {
+        theme: (document.getElementById('hypoTheme').value || '').trim(),
+        tags: (document.getElementById('hypoTags').value || '').trim(),
+        instructions: (document.getElementById('hypoInstructions').value || '').trim(),
+        example: (document.getElementById('hypoExample').value || '').trim(),
+      };
+      try {
+        const resp = await fetch('hypo/start/', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_path: hypoFilePath, sheet: hypoSheet, column, ...settings })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Ошибка запуска');
+        hypoJobId = data.job_id;
+        hypoPoll();
+      } catch (e) {
+        showNotice('hypoNotice', e.message, 'error');
+        document.getElementById('hypoRunBtn').disabled = false;
+        document.getElementById('hypoCancelBtn').style.display = 'none';
+      }
+    }
+
+    async function hypoCancel() {
+      if (!hypoJobId) return;
+      await fetch('hypo/cancel/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: hypoJobId })
+      });
+    }
+
+    async function hypoPoll() {
+      if (!hypoJobId) return;
+      try {
+        const resp = await fetch(`hypo/progress/?job_id=${hypoJobId}`);
+        const data = await resp.json();
+        const p = data.progress || {};
+        setProgressUI('hypo', p.stage, p.current, p.total);
+        renderHypoGroups(data.groups, data.group_debug, data.cards_preview, data.group_raw);
+        if (data.hypotheses && data.hypotheses.length) renderHypotheses(data.hypotheses);
+
+        if (data.status === 'running') {
+          hypoTimer = setTimeout(hypoPoll, 1200);
+        } else {
+          document.getElementById('hypoRunBtn').disabled = false;
+          document.getElementById('hypoCancelBtn').style.display = 'none';
+          if (data.status === 'error') showNotice('hypoNotice', data.error || 'Ошибка', 'error');
+          if (data.status === 'done' && (!data.hypotheses || !data.hypotheses.length)) {
+            showNotice('hypoNotice', 'Гипотез не найдено. Ниже — что вернула группировка (диагностика).', 'info');
+          }
+        }
+      } catch (e) {
+        document.getElementById('hypoRunBtn').disabled = false;
+        showNotice('hypoNotice', 'Ошибка опроса статуса.', 'error');
+      }
+    }
+
+    function renderHypoGroups(groups, debug, cardsPreview, groupRaw) {
+      const box = document.getElementById('hypoGroups');
+      if (!box) return;
+      groups = groups || [];
+      if (!groups.length && !debug) { box.innerHTML = ''; return; }
+      document.getElementById('hypoEmpty').style.display = 'none';
+      const groupCards = groups.map((g, i) => {
+        const docs = (g.sources || []).map((s) => {
+          const detail = s.suspicious || s.subject || '';
+          const label = `Стр. ${s.row}${detail ? ' — ' + safeText(detail) : ''}`;
+          return (s.link && /^https?:\/\//.test(s.link))
+            ? `<li><a href="${s.link}" target="_blank" style="color:var(--tg-primary);text-decoration:none;">${label}</a></li>`
+            : `<li>${label}</li>`;
+        }).join('');
+        return `
+          <div class="message-card" style="border-left:3px solid #7c3aed;">
+            <div style="font-weight:700;margin-bottom:4px;">Группа ${i + 1} · ${(g.doc_indexes || []).length} док.</div>
+            <div style="font-size:0.85rem;color:var(--tg-muted);margin-bottom:6px;">Связь: ${safeText((g.links || []).join('; '))}</div>
+            <ul style="margin:0;padding-left:18px;font-size:0.82rem;">${docs}</ul>
+          </div>`;
+      }).join('');
+      const pre = (t) => `<pre style="white-space:pre-wrap;word-break:break-word;font-size:0.74rem;background:rgba(0,0,0,0.04);padding:10px;border-radius:8px;max-height:280px;overflow:auto;">${safeText(t || '(пусто)')}</pre>`;
+      box.innerHTML = `
+        <div style="font-weight:700;margin:6px 0 10px;">Группы документов (${groups.length})</div>
+        ${groupCards || '<div style="color:var(--tg-muted);font-size:0.85rem;">Группы не найдены.</div>'}
+        ${debug ? `<div style="margin:10px 0 4px;font-size:0.74rem;color:var(--tg-muted);">Диагностика: ${safeText(debug)}</div>` : ''}
+        <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:0.8rem;color:var(--tg-primary);">Что анализировал группировщик (карточки документов)</summary>${pre(cardsPreview)}</details>
+        <details style="margin-top:6px;"><summary style="cursor:pointer;font-size:0.8rem;color:var(--tg-primary);">Сырой ответ модели</summary>${pre(groupRaw)}</details>`;
+    }
+
+    function renderHypotheses(list) {
+      document.getElementById('hypoEmpty').style.display = 'none';
+      const container = document.getElementById('hypoList');
+      container.style.display = '';
+      container.innerHTML = '';
+      list.forEach((h) => {
+        const cross = h.kind === 'cross_document';
+        const sources = (h.sources || []).map((s) => {
+          const detail = s.suspicious || s.subject || '';
+          const label = `Стр. ${s.row}${detail ? ' — ' + safeText(detail) : ''}`;
+          return (s.link && /^https?:\/\//.test(s.link))
+            ? `<li><a href="${s.link}" target="_blank" style="color:var(--tg-primary);text-decoration:none;">${label}</a></li>`
+            : `<li>${label}</li>`;
+        }).join('');
+        const card = document.createElement('div');
+        card.className = 'message-card';
+        card.innerHTML = `
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <span style="font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:8px;background:${cross ? '#7c3aed' : '#2aabee'};color:#fff;">
+              ${cross ? 'КРОСС-ДОКУМЕНТНАЯ' : 'ОДИН ДОКУМЕНТ'}
+            </span>
+            <span style="font-size:0.72rem;color:var(--tg-muted);">Существенность: ${safeText(h.materiality || '—')}</span>
+            ${h.merged_from > 1 ? `<span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:8px;background:#0ea5e9;color:#fff;">объединено ${h.merged_from}</span>` : ''}
+          </div>
+          <div style="font-weight:700;margin-bottom:6px;">⚠ ${safeText(h.risk || '')}</div>
+          <div style="font-size:0.88rem;line-height:1.5;">
+            <div style="margin-bottom:4px;"><b>Красный флаг:</b> ${safeText(h.red_flag || '')}</div>
+            <div style="margin-bottom:4px;"><b>Проверяем:</b> ${safeText(h.testable_claim || '')}</div>
+            <div style="margin-bottom:4px;"><b>Процедура:</b> ${safeText(h.audit_procedure || '')}</div>
+            <div style="margin-bottom:4px;"><b>Где искать:</b> ${safeText(h.scope || '')}</div>
+          </div>
+          <div style="font-size:0.78rem;color:var(--tg-muted);margin-top:10px;">
+            <b>Документы-основания:</b>
+            <ul style="margin:4px 0 0;padding-left:18px;">${sources || '<li>—</li>'}</ul>
+          </div>`;
+        container.appendChild(card);
+      });
+      createIconsSafe();
+    }
+
+    // ── Обезличивание ─────────────────────────────────────────
+    async function anonRun() {
+      const text = document.getElementById('anonInput').value;
+      if (!text.trim()) {
+        showNotice('anonNotice', 'Вставьте текст для обезличивания.', 'error');
+        return;
+      }
+      hideNotice('anonNotice');
+      const useLlm = document.getElementById('anonUseLlm').checked;
+      const btn = document.getElementById('anonRunBtn');
+      btn.disabled = true;
+      try {
+        const resp = await fetch('anon/run/', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, use_llm: useLlm })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Ошибка');
+        document.getElementById('anonOutput').value = data.clean_text || '';
+        const stats = data.stats || {};
+        const labels = { name: 'ФИО', phone: 'телефоны', email: 'e-mail', passport: 'паспорта', snils: 'СНИЛС', inn: 'ИНН', card: 'карты' };
+        const parts = Object.keys(stats).map(k => `${labels[k] || k}: ${stats[k]}`);
+        const statsEl = document.getElementById('anonStats');
+        statsEl.style.display = '';
+        statsEl.textContent = parts.length ? `Удалено — ${parts.join(', ')}` : 'Персональные данные не найдены.';
+      } catch (e) {
+        showNotice('anonNotice', e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function anonCopy() {
+      const out = document.getElementById('anonOutput');
+      if (!out.value) return;
+      out.select();
+      navigator.clipboard.writeText(out.value).catch(() => document.execCommand('copy'));
+      showNotice('anonNotice', 'Скопировано.', 'info');
+    }
+
+    // ── Обезличивание Excel-столбца ───────────────────────────
+    let anonExcelJobId = null, anonExcelTimer = null;
+    let anonFilePath = '', anonSheet = '', anonColumnsBySheet = {};
+
+    function anonUpdateRunState() {
+      const btn = document.getElementById('anonExcelBtn');
+      const col = document.getElementById('anonColumnSelect');
+      if (btn) btn.disabled = !(anonFilePath && anonSheet && col && col.value);
+    }
+
+    async function anonHandleUpload(files) {
+      if (!files || !files.length) return;
+      hideNotice('anonExcelNotice');
+      const formData = new FormData();
+      formData.append('file', files[0]);
+      try {
+        const resp = await fetch('hypo/upload/', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (!resp.ok || data.status !== 'ok') throw new Error(data.error || 'Ошибка загрузки');
+        anonFilePath = data.file_path;
+        anonColumnsBySheet = data.columns || {};
+        const sheetSel = document.getElementById('anonSheetSelect');
+        sheetSel.disabled = false;
+        sheetSel.innerHTML = '';
+        (data.sheets || []).forEach((s) => {
+          const o = document.createElement('option'); o.value = s; o.textContent = s; sheetSel.appendChild(o);
+        });
+        anonSheet = sheetSel.value;
+        anonOnSheetChange();
+        showNotice('anonExcelNotice', 'Файл загружен. Выберите столбец.', 'success');
+      } catch (e) {
+        showNotice('anonExcelNotice', e.message, 'error');
+      }
+    }
+
+    function anonOnSheetChange() {
+      const sheetSel = document.getElementById('anonSheetSelect');
+      const colSel = document.getElementById('anonColumnSelect');
+      anonSheet = sheetSel ? sheetSel.value : '';
+      const cols = anonColumnsBySheet[anonSheet] || [];
+      colSel.disabled = false;
+      colSel.innerHTML = '<option value="">Выберите столбец</option>';
+      cols.forEach((c) => {
+        const o = document.createElement('option'); o.value = c; o.textContent = c; colSel.appendChild(o);
+      });
+      const guess = cols.find((c) => /пересказ|gigachat|текст|содержан/i.test(c));
+      if (guess) colSel.value = guess;
+      colSel.onchange = anonUpdateRunState;
+      anonUpdateRunState();
+    }
+
+    async function anonExcelStart() {
+      const column = document.getElementById('anonColumnSelect').value;
+      if (!(anonFilePath && anonSheet && column)) {
+        showNotice('anonExcelNotice', 'Загрузите файл и выберите лист и столбец.', 'error');
+        return;
+      }
+      hideNotice('anonExcelNotice');
+      const useLlm = document.getElementById('anonUseLlm').checked;
+      document.getElementById('anonExcelBtn').disabled = true;
+      document.getElementById('anonExcelDownload').style.display = 'none';
+      try {
+        const resp = await fetch('anon/excel_start/', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_path: anonFilePath, sheet: anonSheet, column, use_llm: useLlm })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Ошибка запуска');
+        anonExcelJobId = data.job_id;
+        anonExcelPoll();
+      } catch (e) {
+        showNotice('anonExcelNotice', e.message, 'error');
+        document.getElementById('anonExcelBtn').disabled = false;
+      }
+    }
+
+    async function anonExcelPoll() {
+      if (!anonExcelJobId) return;
+      try {
+        const resp = await fetch(`anon/excel_progress/?job_id=${anonExcelJobId}`);
+        const data = await resp.json();
+        setProgressUI('anonExcel', data.stage, data.current, data.total);
+        if (data.status === 'running') {
+          anonExcelTimer = setTimeout(anonExcelPoll, 1500);
+        } else {
+          document.getElementById('anonExcelBtn').disabled = false;
+          if (data.status === 'error') { showNotice('anonExcelNotice', data.error || 'Ошибка', 'error'); return; }
+          if (data.status === 'done' && data.download_url) {
+            const link = document.getElementById('anonExcelDownload');
+            link.href = data.download_url;
+            link.style.display = 'inline-flex';
+            showNotice('anonExcelNotice', 'Готово. Скачайте файл.', 'success');
+          }
+        }
+      } catch (e) {
+        document.getElementById('anonExcelBtn').disabled = false;
+        showNotice('anonExcelNotice', 'Ошибка опроса статуса.', 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      resetAnalysisState();
+      await restoreAppState();
+      loadModels();
+      loadHypoDefaults();
+    });
+  </script>
+
+  <!-- ── Landing: motion-движок ─────────────────────────── -->
+  <script>
+    (function () {
+      const landing = document.getElementById('landing');
+      if (!landing) return;
+
+      const DPR = Math.min(window.devicePixelRatio || 1, 1.75);
+      let rafId = null;
+
+      // ── Переходы главная ⇄ приложение: «влёт» камеры по клику, реверс по «Назад» ──
+      let savedScroll = 0; // позиция лендинга, куда возвращает кнопка «Назад»
+
+      function switchToApp(tab) {
+        // цикл рендера НЕ останавливаем: WebGL-фон продолжает жить под панелями
+        document.body.classList.remove('landing-active');
+        window.scrollTo({ top: 0, behavior: 'instant' }); // мгновенно: иначе scroll-behavior smooth анимирует
+        if (typeof switchTab === 'function') switchTab(tab || 'analysis');
+      }
+
+      window.enterApp = function (tab) {
+        if (!document.body.classList.contains('landing-active')) {
+          // уже в приложении: переключаем вкладку и плавно скользим камерой к её сегменту
+          if (typeof switchTab === 'function') switchTab(tab || 'analysis');
+          if (glRetarget) glRetarget(tab || 'analysis');
+          return;
+        }
+        savedScroll = window.pageYOffset;
+        if (glDiveIn) glDiveIn(tab, function () { switchToApp(tab); });
+        else switchToApp(tab);
+      };
+
+      function returnToLanding(top) {
+        document.body.classList.add('landing-active');
+        window.scrollTo({ top: top, behavior: 'instant' }); // мгновенный прыжок к сохранённой позиции
+        resizeAll();
+        startLoop();
+        if (glDiveOut) glDiveOut(); // камера плавно отъезжает к базовому состоянию
+      }
+      window.showLanding = function () { returnToLanding(0); };            // «Главная» → hero
+      window.backToLanding = function () { returnToLanding(savedScroll); }; // «Назад» → откуда пришли
+
+      // ── Заголовки: пословное появление с blur ──
+      landing.querySelectorAll('[data-words]').forEach((el) => {
+        const words = el.textContent.trim().split(/\s+/);
+        el.textContent = '';
+        const n = Math.max(words.length - 1, 1);
+        words.forEach((w, i) => {
+          const s = document.createElement('span');
+          s.className = 'lword';
+          s.textContent = w;
+          s.style.transitionDelay = (i * 90) + 'ms';
+          const t = i / n; // белый → приглушённо-серый к концу строки
+          const r = Math.round(246 - 86 * t);
+          const g = Math.round(247 - 82 * t);
+          const b = Math.round(250 - 62 * t);
+          s.style.color = 'rgb(' + r + ',' + g + ',' + b + ')';
+          el.appendChild(s);
+          el.appendChild(document.createTextNode(' '));
+        });
+      });
+
+      // ── Reveal по скроллу (проверяется в кадровом цикле) ──
+      const revealEls = Array.prototype.slice.call(landing.querySelectorAll('.lreveal, [data-words]'));
+      function checkReveals() {
+        const vh = window.innerHeight || 720;
+        for (let i = revealEls.length - 1; i >= 0; i--) {
+          const r = revealEls[i].getBoundingClientRect();
+          if (r.top < vh * 0.85 && r.bottom > 0) {
+            revealEls[i].classList.add('on');
+            revealEls.splice(i, 1);
+          }
+        }
+      }
+
+      // ── Навбар: подложка при скролле ──
+      const lnav = document.getElementById('lnav');
+      window.addEventListener('scroll', () => {
+        if (!document.body.classList.contains('landing-active')) return;
+        lnav.classList.toggle('scrolled', window.scrollY > 40);
+      }, { passive: true });
+
+      // ══ WebGL: единый пул из 40 000 частиц — премиальная объёмная матрица ══
+      // Состояния: сжатая сфера с бело-голубым ядром (hero) → вытянутая двойная
+      // спираль из толстых жгутов света с брусьями-перекладинами → волновой
+      // рельеф (финал). Скролл отвечает ТОЛЬКО за морфинг форм — масштаб от
+      // колеса/скролла не зависит. Приближение камеры происходит исключительно
+      // по кликам (вкладки, CTA) и считается в кадровом цикле — никаких
+      // CSS-переходов. Canvas не слушает колесо: pointer-events: none.
+      const canvas = document.getElementById('lparticles');
+      let glDraw = null;      // рендер кадра, если WebGL доступен
+      let glResize = function () {};
+      let glDiveIn = null;    // перелёт камеры внутрь сегмента спирали (по клику)
+      let glDiveOut = null;   // реверс перелёта («Назад» / «Главная»)
+      let glRetarget = null;  // скольжение камеры к сегменту другой вкладки
+
+      const POINT_VS = `
+        precision highp float;
+        attribute vec3 aSphere;   // направление * радиус: оболочка r=1, ядро r<0.72
+        attribute vec4 aHelix;    // s; вид (0/1 нить, 2 перекладина, 3 перекладина-«флаг»); j1; j2
+        attribute vec2 aTerrain;  // u, v на сетке рельефа
+        attribute float aSeed;
+        uniform float uTime;
+        uniform float uSpin;      // угол вращения спирали — управляется скроллом, не временем
+        uniform float uM1;        // сфера -> спираль
+        uniform float uM2;        // спираль -> рельеф
+        uniform float uZoom;      // скролл-зум спирали
+        uniform float uAspect;
+        uniform float uDpr;
+        uniform float uDive;      // «влёт» камеры по клику (глобальный dolly)
+        uniform float uShift;     // подача к выбранному сегменту спирали
+        uniform float uImpPos;    // фронт красной импульс-волны (в s-координате)
+        uniform float uImpAmp;    // сила волны
+        varying float vMix;       // 0 — синий, 1 — красный
+        varying float vWhite;     // примесь пересвеченного бело-голубого ядра
+        varying float vAlpha;
+        const float PI = 3.14159265;
+
+        vec3 strandPos(float s, float strand) {
+          // вытянутая спираль: выше шаг витков и вертикальный размах, изящный радиус.
+          // Вращение задаёт uSpin (скролл), а не время — спираль сама не крутится.
+          float ang = s * PI * 7.0 + uSpin + strand * PI;
+          return vec3(cos(ang) * 0.4, (s - 0.5) * 4.4, sin(ang) * 0.36);
+        }
+
+        void main() {
+          // — состояние 1: плотная сфера — рябь только на внешней оболочке, ядро сжато
+          float r0 = length(aSphere);
+          vec3 dir = aSphere / max(r0, 0.0001);
+          float ra = uTime * 0.1, ca = cos(ra), sa = sin(ra);
+          dir = vec3(dir.x * ca - dir.z * sa, dir.y, dir.x * sa + dir.z * ca);
+          float shell = smoothstep(0.55, 0.95, r0);
+          float n = 0.10 * sin(dir.y * 4.0 + uTime * 0.7 + 2.0 * sin(dir.x * 3.0 + uTime * 0.35))
+                  + 0.05 * sin(dir.x * 7.0 + dir.z * 5.0 - uTime * 0.5)
+                  + 0.03 * sin(dir.z * 11.0 + dir.y * 6.0 + uTime * 0.9);
+          vec3 ps = dir * r0 * (1.0 + n * shell);
+          float cs = clamp(0.5 + dir.x * 0.45 + dir.y * 0.55, 0.0, 1.0); // низ-лево синее, верх-право красное
+          float ws = (1.0 - smoothstep(0.15, 0.7, r0)) * 0.95;           // бело-голубое ядро
+          float os = mix(1.9, 1.15, shell);                              // ядро плотнее оболочки
+
+          // — состояния 2/3: плотная матрица ДНК
+          float s = aHelix.x;
+          float isRung = step(1.5, aHelix.y);
+          float isFlag = step(2.5, aHelix.y);
+          float strand = min(aHelix.y, 1.0);
+          vec3 b0 = strandPos(s, 0.0);
+          vec3 b1 = strandPos(s, 1.0);
+          // нить: толстый объёмный «воздушный» жгут вокруг кривой, ось пересвечена бело-голубым.
+          // tub (линейно, не в квадрате) заполняет объём равномернее — жгут выглядит воздушным, а не полым.
+          float tub = aHelix.z;
+          vec3 tubeOff = vec3(cos(aHelix.w), 0.7 * sin(aHelix.w * 1.7), sin(aHelix.w)) * tub * 0.17;
+          vec3 pStrand = mix(b0, b1, strand) + tubeOff;
+          // перекладина: цельный толстый объёмный брус между нитями
+          vec3 pRung = mix(b0, b1, aHelix.z)
+                     + vec3(sin(aHelix.w), cos(aHelix.w * 1.3), cos(aHelix.w)) * 0.032;
+          vec3 ph = mix(pStrand, pRung, isRung) * uZoom;
+          float wh = mix(min((1.0 - smoothstep(0.0, 0.7, tub)) * 1.15, 1.0), 0.35, isRung);
+          float chh = mix(0.16 + 0.1 * sin(s * 9.0), 0.28, isRung); // электрик-синий с фиолетовым
+          float oh = mix(2.2, 2.6, isRung); // сплошные шнуры света, не «туман»
+          // красная импульс-волна: гребень бежит по сегменту после клика
+          float wave = exp(-pow((s - uImpPos) * 12.0, 2.0)) * uImpAmp;
+          float hot = wave * (0.5 + 0.6 * isFlag + 0.5 * isRung);
+          chh = clamp(chh + hot * 1.4, 0.0, 1.0);
+          wh *= (1.0 - hot * 0.85);
+          oh += hot * 1.8;
+
+          // — состояние 4: рельеф с плотными светящимися гребнями
+          float tu = aTerrain.x, tv = aTerrain.y;
+          float hg = 0.16 * sin(tu * 7.0 + uTime * 0.5 + tv * 3.0)
+                   + 0.09 * sin(tu * 13.0 - uTime * 0.35 + tv * 6.0)
+                   + 0.12 * sin(tv * 5.0 + uTime * 0.45 + tu * 2.0);
+          vec3 pt = vec3((tu - 0.5) * 4.6, -0.55 + hg, (tv - 0.5) * 2.4);
+          float tl = -0.35, ct = cos(tl), st = sin(tl); // лёгкий наклон камеры к рельефу
+          pt = vec3(pt.x, pt.y * ct - pt.z * st, pt.y * st + pt.z * ct);
+          float cT = clamp(tu * 0.8 + hg * 1.2 + 0.1, 0.0, 1.0);
+          float wt = clamp(hg * 1.6, 0.0, 0.55);            // белые макушки гребней
+          float ot = 0.5 + clamp(hg, 0.0, 1.0) * 2.6;
+
+          // — сшивка: staggered LERP, каждая частица стартует со своей задержкой
+          float m1 = clamp((uM1 - aSeed * 0.3) / 0.7, 0.0, 1.0);
+          m1 = m1 * m1 * (3.0 - 2.0 * m1);
+          float m2 = clamp((uM2 - aSeed * 0.3) / 0.7, 0.0, 1.0);
+          m2 = m2 * m2 * (3.0 - 2.0 * m2);
+          vec3 pos = mix(mix(ps, ph, m1), pt, m2);
+          vMix = mix(mix(cs, chh, m1), cT, m2);
+          vWhite = mix(mix(ws, wh, m1), wt, m2);
+          float ov = mix(mix(os, oh, m1), ot, m2);
+
+          // — перелёт камеры по клику: dolly всей сцены + подача к сегменту
+          pos *= uDive;
+          pos.y += uShift;
+
+          float wz = 2.6 - pos.z; // простая перспектива, камера на z = 2.6
+          float f = 1.9;
+          gl_Position = vec4(pos.x * f / uAspect, pos.y * f, 0.0, wz);
+
+          float tw = 0.65 + 0.35 * sin(aSeed * 6.2831 + uTime * 2.2);
+          vAlpha = ov * tw * clamp(1.9 / wz, 0.12, 1.3) * 0.65;
+          gl_PointSize = clamp((1.2 + 1.0 * tw) * uDpr * (2.4 / wz), 1.0, 5.0 * uDpr);
+        }
+      `;
+
+      const POINT_FS = `
+        precision mediump float;
+        varying float vMix;
+        varying float vWhite;
+        varying float vAlpha;
+        void main() {
+          vec2 q = gl_PointCoord - 0.5;
+          float a = smoothstep(0.25, 0.04, dot(q, q)) * vAlpha;
+          vec3 col = mix(vec3(0.314, 0.451, 1.0), vec3(1.0, 0.361, 0.251), vMix); // #5073FF -> #FF5C40
+          col = mix(col, vec3(0.88, 0.94, 1.0), vWhite); // пересвеченные бело-голубые оси жгутов
+          gl_FragColor = vec4(col, a);
+        }
+      `;
+
+      const BOND_VS = `
+        precision highp float;
+        attribute vec4 aB; // s, конец (0/1), «флаг», фаза мерцания
+        uniform float uTime;
+        uniform float uSpin;
+        uniform float uZoom;
+        uniform float uAspect;
+        uniform float uDive;
+        uniform float uShift;
+        uniform float uImpPos;
+        uniform float uImpAmp;
+        varying float vHot;   // насколько перекладина захвачена красной волной
+        varying float vPulse;
+        const float PI = 3.14159265;
+        void main() {
+          float ang = aB.x * PI * 7.0 + uSpin + aB.y * PI;
+          vec3 p = vec3(cos(ang) * 0.4, (aB.x - 0.5) * 4.4, sin(ang) * 0.36);
+          p *= uZoom;
+          p *= uDive;
+          p.y += uShift;
+          float wz = 2.6 - p.z;
+          gl_Position = vec4(p.x * 1.9 / uAspect, p.y * 1.9, 0.0, wz);
+          float wave = exp(-pow((aB.x - uImpPos) * 12.0, 2.0)) * uImpAmp;
+          vHot = clamp(wave * (0.7 + 0.7 * aB.z), 0.0, 1.0); // «флаги» вспыхивают ярче
+          vPulse = 0.75 + 0.25 * sin(uTime * 2.0 + aB.w);    // считаем здесь: uTime не нужен во фрагментном
+        }
+      `;
+
+      const BOND_FS = `
+        precision mediump float;
+        uniform float uBondA;
+        varying float vHot;
+        varying float vPulse;
+        void main() {
+          vec3 base = vec3(0.5, 0.6, 1.0) * vPulse;           // родной сине-фиолетовый
+          vec3 hot = vec3(1.0, 0.32, 0.2) * (1.2 + vPulse);   // неоново-красная энергия волны
+          vec3 col = mix(base, hot, vHot);
+          float a = uBondA * (0.35 + 0.65 * vHot);
+          gl_FragColor = vec4(col, a);
+        }
+      `;
+
+      (function initParticles() {
+        const opts = { alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' };
+        const gl = canvas && (canvas.getContext('webgl', opts) || canvas.getContext('experimental-webgl', opts));
+        if (!gl) return; // без WebGL остаются reveal-анимации на тёмном фоне
+
+        function compile(type, src) {
+          const sh = gl.createShader(type);
+          gl.shaderSource(sh, src);
+          gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            console.error('shader:', gl.getShaderInfoLog(sh));
+            return null;
+          }
+          return sh;
+        }
+        function link(vsSrc, fsSrc) {
+          const vs = compile(gl.VERTEX_SHADER, vsSrc);
+          const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+          if (!vs || !fs) return null;
+          const p = gl.createProgram();
+          gl.attachShader(p, vs);
+          gl.attachShader(p, fs);
+          gl.linkProgram(p);
+          if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+            console.error('program:', gl.getProgramInfoLog(p));
+            return null;
+          }
+          return p;
+        }
+
+        const pointProg = link(POINT_VS, POINT_FS);
+        const bondProg = link(BOND_VS, BOND_FS);
+        if (!pointProg || !bondProg) return;
+
+        // — единый пул: каждой частице заранее заданы позиции во всех состояниях.
+        // 30 000 — структурная оболочка сферы (в спирали — толстые жгуты нитей),
+        // 10 000 — плотное ядро сферы (в спирали — цельные брусья-перекладины).
+        const N = 60000, SHELL = 45000, MER = 150, LATN = 200;
+        const RUNGS = 42;
+        const data = new Float32Array(N * 10);
+        for (let i = 0; i < N; i++) {
+          const o = i * 10;
+          if (i < SHELL) {
+            // оболочка сферы: плотные пунктирные меридианы
+            const mer = i % MER, row = (i / MER) | 0;
+            const lon = (mer / MER) * Math.PI * 2;
+            const lat = (((row + 0.5) / LATN) - 0.5) * Math.PI;
+            data[o] = Math.cos(lat) * Math.cos(lon);
+            data[o + 1] = Math.sin(lat);
+            data[o + 2] = Math.cos(lat) * Math.sin(lon);
+            // в спирали — частица жгута нити
+            data[o + 3] = (i * 0.61803398875) % 1;       // равномерное s (золотое сечение)
+            data[o + 4] = i % 2;                          // нить 0/1
+            data[o + 5] = Math.pow(Math.random(), 0.7);   // радиус внутри жгута (ось плотнее)
+            data[o + 6] = Math.random() * Math.PI * 2;    // фаза вокруг жгута
+          } else {
+            // ядро сферы: плотное облако внутри оболочки
+            const az = Math.random() * Math.PI * 2;
+            const el = Math.random() * 2 - 1;
+            const rc = Math.pow(Math.random(), 0.4) * 0.72;
+            const sq = Math.sqrt(1 - el * el);
+            data[o] = sq * Math.cos(az) * rc;
+            data[o + 1] = el * rc;
+            data[o + 2] = sq * Math.sin(az) * rc;
+            // в спирали — частица бруса-перекладины (~238 частиц на брус)
+            const k = (i - SHELL) % RUNGS;
+            data[o + 3] = (k + 0.5) / RUNGS;
+            data[o + 4] = (k % 6 === 2) ? 3 : 2;          // 3 — «флаг»: вспыхивает ярче в волне
+            data[o + 5] = Math.random();                  // положение поперёк бруса
+            data[o + 6] = Math.random() * Math.PI * 2;
+          }
+          data[o + 7] = (i % 250) / 249;                  // рельеф: u (сетка 250 x 160)
+          data[o + 8] = ((i / 250) | 0) / 159;            // рельеф: v
+          data[o + 9] = Math.random();                    // aSeed
+        }
+        const pBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, pBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+        // — линии-сердечники перекладин (чёткий стержень внутри брусьев из частиц)
+        const bdata = new Float32Array(RUNGS * 2 * 4);
+        for (let k = 0; k < RUNGS; k++) {
+          const s = (k + 0.5) / RUNGS;
+          const flag = (k % 6 === 2) ? 1 : 0;
+          const ph = Math.random() * Math.PI * 2;
+          for (let e = 0; e < 2; e++) {
+            const o = (k * 2 + e) * 4;
+            bdata[o] = s;
+            bdata[o + 1] = e;
+            bdata[o + 2] = flag;
+            bdata[o + 3] = ph;
+          }
+        }
+        const bBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, bBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, bdata, gl.STATIC_DRAW);
+
+        const pLoc = {
+          aSphere: gl.getAttribLocation(pointProg, 'aSphere'),
+          aHelix: gl.getAttribLocation(pointProg, 'aHelix'),
+          aTerrain: gl.getAttribLocation(pointProg, 'aTerrain'),
+          aSeed: gl.getAttribLocation(pointProg, 'aSeed'),
+          uTime: gl.getUniformLocation(pointProg, 'uTime'),
+          uSpin: gl.getUniformLocation(pointProg, 'uSpin'),
+          uM1: gl.getUniformLocation(pointProg, 'uM1'),
+          uM2: gl.getUniformLocation(pointProg, 'uM2'),
+          uZoom: gl.getUniformLocation(pointProg, 'uZoom'),
+          uAspect: gl.getUniformLocation(pointProg, 'uAspect'),
+          uDpr: gl.getUniformLocation(pointProg, 'uDpr'),
+          uDive: gl.getUniformLocation(pointProg, 'uDive'),
+          uShift: gl.getUniformLocation(pointProg, 'uShift'),
+          uImpPos: gl.getUniformLocation(pointProg, 'uImpPos'),
+          uImpAmp: gl.getUniformLocation(pointProg, 'uImpAmp')
+        };
+        const bLoc = {
+          aB: gl.getAttribLocation(bondProg, 'aB'),
+          uTime: gl.getUniformLocation(bondProg, 'uTime'),
+          uSpin: gl.getUniformLocation(bondProg, 'uSpin'),
+          uZoom: gl.getUniformLocation(bondProg, 'uZoom'),
+          uAspect: gl.getUniformLocation(bondProg, 'uAspect'),
+          uBondA: gl.getUniformLocation(bondProg, 'uBondA'),
+          uDive: gl.getUniformLocation(bondProg, 'uDive'),
+          uShift: gl.getUniformLocation(bondProg, 'uShift'),
+          uImpPos: gl.getUniformLocation(bondProg, 'uImpPos'),
+          uImpAmp: gl.getUniformLocation(bondProg, 'uImpAmp')
+        };
+
+        gl.disable(gl.DEPTH_TEST);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // аддитивный неоновый блендинг
+        gl.clearColor(0, 0, 0, 0);
+
+        let W = 0, H = 0;
+        glResize = function () {
+          const w = canvas.clientWidth || window.innerWidth;
+          const h = canvas.clientHeight || window.innerHeight;
+          if (w < 2 || h < 2 || (w === W && h === H)) return;
+          W = w;
+          H = h;
+          canvas.width = Math.round(w * DPR);
+          canvas.height = Math.round(h * DPR);
+          gl.viewport(0, 0, canvas.width, canvas.height);
+        };
+
+        // — якоря секций → фазы морфинга
+        let anch = null, lastSH = 0, lastVH = 0;
+        function ramp(x, a, b) {
+          return Math.min(1, Math.max(0, (x - a) / Math.max(b - a, 1)));
+        }
+        function measure() {
+          function top(sel) {
+            const el = landing.querySelector(sel);
+            return el ? el.getBoundingClientRect().top + window.pageYOffset : 0;
+          }
+          anch = {
+            analysis: top('#ls-analysis'),
+            lab: top('#ls-lab'),
+            anon: top('#ls-anon'),
+            fin: top('.lfinal')
+          };
+        }
+
+        // — перелёт камеры: ТОЛЬКО по кликам (вкладки/CTA), твин в кадровом цикле.
+        // Сегменты спирали, закреплённые за точками входа приложения:
+        const SEGMENTS = { analysis: 0.78, lab: 0.61, hypo: 0.44, anon: 0.27, settings: 0.5 };
+        const HELIX_H = 4.4; // вертикальный размах спирали — как в шейдерах
+        const cam = { p: 0, sT: 0.5 }; // p: 0 — обзор, 1 — камера внутри жгутов
+        let spinAngle = 0; // угол спирали: от скролла на лендинге, от времени во вкладках
+        let lastSpinT = 0;
+        let trans = null;
+        function easeInOut(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+        function segOf(tab) { return SEGMENTS[tab] !== undefined ? SEGMENTS[tab] : 0.5; }
+
+        glDiveIn = function (tab, onDone) {
+          // перелёт стартует с текущей позиции камеры — обрыва не будет
+          trans = { fromP: cam.p, toP: 1, fromS: cam.sT, toS: segOf(tab), start: null, dur: 0.25 + 0.95 * Math.abs(1 - cam.p), onDone: onDone };
+        };
+        glDiveOut = function () {
+          trans = { fromP: cam.p, toP: 0, fromS: cam.sT, toS: cam.sT, start: null, dur: 0.25 + 0.85 * Math.abs(cam.p), onDone: null };
+        };
+        glRetarget = function (tab) {
+          // смена вкладки внутри приложения: камера скользит вдоль спирали к новому сегменту
+          trans = { fromP: cam.p, toP: 1, fromS: cam.sT, toS: segOf(tab), start: null, dur: 0.9, onDone: null };
+        };
+
+        glDraw = function (t) {
+          glResize();
+          if (W < 2) return;
+          const inApp = !document.body.classList.contains('landing-active');
+
+          // морфинг форм привязан к скроллу ТОЛЬКО на лендинге;
+          // масштаб от колеса/скролла не зависит вообще (скролл-зум удалён)
+          let m1 = 1, m2 = 0, bond = 1;
+          if (!inApp) {
+            const sh = document.body.scrollHeight, vh = window.innerHeight;
+            if (!anch || sh !== lastSH || vh !== lastVH) {
+              lastSH = sh;
+              lastVH = vh;
+              measure();
+            }
+            const sy = window.pageYOffset;
+            m1 = ramp(sy, vh * 0.1, Math.max(anch.analysis * 0.9, vh * 0.5));  // сфера -> ДНК
+            m2 = ramp(sy, anch.fin - vh * 0.95, anch.fin - vh * 0.2);          // ДНК -> рельеф
+            bond = ramp(sy, anch.analysis * 0.95, anch.analysis + vh * 0.8) * m1 * (1 - m2);
+            spinAngle = (sy / vh) * 1.5; // на лендинге вращение строго от позиции скролла
+          }
+          // во вкладках приложения ДНК вращается сама — плавно по времени
+          const dtSpin = Math.min(Math.max(t - lastSpinT, 0), 0.05);
+          lastSpinT = t;
+          if (inApp) spinAngle += dtSpin * 0.45;
+
+          // твин перелёта: p (глубина) и sT (сегмент) движутся одновременно
+          if (trans) {
+            if (trans.start === null) trans.start = t;
+            const k = Math.min((t - trans.start) / trans.dur, 1);
+            const e = easeInOut(k);
+            cam.p = trans.fromP + (trans.toP - trans.fromP) * e;
+            cam.sT = trans.fromS + (trans.toS - trans.fromS) * e;
+            if (k >= 1) {
+              const cb = trans.onDone;
+              trans = null;
+              if (cb) cb();
+            }
+          }
+          const dive = 1 + 0.9 * cam.p;                                // dolly внутрь жгутов (умеренный: виден целый блок спирали)
+          const shift = -(cam.sT - 0.5) * HELIX_H * dive * cam.p;      // подача к сегменту вкладки
+
+          // красная импульс-волна: при перелёте — по ходу твина;
+          // внутри активной вкладки — периодический прогон по видимому сегменту
+          let impAmp, impPos;
+          if (inApp && !trans) {
+            const cyc = (t % 3.5) / 3.5;
+            impAmp = Math.sin(cyc * Math.PI) * 0.9;
+            impPos = cam.sT - 0.45 + cyc * 0.9;
+          } else {
+            impAmp = Math.sin(Math.min(cam.p * 1.15, 1) * Math.PI);
+            impPos = cam.sT - 0.55 + cam.p * 1.1;
+          }
+
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          const zoom = 1.0; // масштаб спирали фиксирован; приближение — только uDive
+
+          // линии-сердечники перекладин (видны в состоянии спирали)
+          if (bond > 0.001) {
+            gl.useProgram(bondProg);
+            gl.bindBuffer(gl.ARRAY_BUFFER, bBuf);
+            gl.enableVertexAttribArray(bLoc.aB);
+            gl.vertexAttribPointer(bLoc.aB, 4, gl.FLOAT, false, 16, 0);
+            gl.uniform1f(bLoc.uTime, t);
+            gl.uniform1f(bLoc.uSpin, spinAngle);
+            gl.uniform1f(bLoc.uZoom, zoom);
+            gl.uniform1f(bLoc.uAspect, W / H);
+            gl.uniform1f(bLoc.uBondA, bond);
+            gl.uniform1f(bLoc.uDive, dive);
+            gl.uniform1f(bLoc.uShift, shift);
+            gl.uniform1f(bLoc.uImpPos, impPos);
+            gl.uniform1f(bLoc.uImpAmp, impAmp);
+            gl.drawArrays(gl.LINES, 0, RUNGS * 2);
+          }
+
+          // частицы
+          gl.useProgram(pointProg);
+          gl.bindBuffer(gl.ARRAY_BUFFER, pBuf);
+          gl.enableVertexAttribArray(pLoc.aSphere);
+          gl.vertexAttribPointer(pLoc.aSphere, 3, gl.FLOAT, false, 40, 0);
+          gl.enableVertexAttribArray(pLoc.aHelix);
+          gl.vertexAttribPointer(pLoc.aHelix, 4, gl.FLOAT, false, 40, 12);
+          gl.enableVertexAttribArray(pLoc.aTerrain);
+          gl.vertexAttribPointer(pLoc.aTerrain, 2, gl.FLOAT, false, 40, 28);
+          gl.enableVertexAttribArray(pLoc.aSeed);
+          gl.vertexAttribPointer(pLoc.aSeed, 1, gl.FLOAT, false, 40, 36);
+          gl.uniform1f(pLoc.uTime, t);
+          gl.uniform1f(pLoc.uSpin, spinAngle);
+          gl.uniform1f(pLoc.uM1, m1);
+          gl.uniform1f(pLoc.uM2, m2);
+          gl.uniform1f(pLoc.uZoom, zoom);
+          gl.uniform1f(pLoc.uAspect, W / H);
+          gl.uniform1f(pLoc.uDpr, DPR);
+          gl.uniform1f(pLoc.uDive, dive);
+          gl.uniform1f(pLoc.uShift, shift);
+          gl.uniform1f(pLoc.uImpPos, impPos);
+          gl.uniform1f(pLoc.uImpAmp, impAmp);
+          gl.drawArrays(gl.POINTS, 0, N);
+        };
+      })();
+
+      function render(t) {
+        checkReveals();
+        if (glDraw) glDraw(t);
+      }
+      function frame(ts) {
+        rafId = requestAnimationFrame(frame);
+        render(ts / 1000);
+      }
+      function startLoop() { if (rafId === null) rafId = requestAnimationFrame(frame); }
+      function stopLoop() { if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; } }
+      function resizeAll() { glResize(); }
+      window.__landingRender = render; // ручной прогон кадра (отладка в средах без rAF)
+
+      resizeAll();
+      render(0.001); // первый кадр сразу, не дожидаясь rAF
+      startLoop();
+    })();
+  </script>
+</body>
+</html>
